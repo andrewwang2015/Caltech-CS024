@@ -1,0 +1,23 @@
+CS:APP3e Practice Problem 2.46, pp.111-112:
+-------------------------------------------
+
+A. We know that x is just the first 23 bits of the sequence to the right of
+   the non terminating sequence 0.000110011[0011] and so 
+
+   0.1 - x =
+   0.000110011[0011] - 0.00011001100110011001100 = 
+   0.000000000000000000000001100[1100]   (base 2)
+
+B. We know that 0.1 = 000110011[0011] and from our calculation of part 1,
+   we know that 0.1 - x = 0.000 ... (20 0s) 0001100[1100]
+
+   and so:
+   0.1 - x = 2 ^ (-20) * 0.1 = 9.537 * 10^(-8)
+
+C. We know from part B that each 0.1 counted has an error of 9.537 * 10^(-8)
+   and because 100 hours has 60 * 60 * 10 = 3600000 counts of 0.1 second 
+   intervals, teh toatal error is 
+
+   9.537 * 10^(-8) * 3600000 = 0.343 seconds difference.
+
+D. 2000 m/s * 0.343 s = 686.646 m or approximately 687 m.

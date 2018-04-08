@@ -1,0 +1,82 @@
+Part A:
+-------
+
+The results are different due to neglecting of low order digits in floating 
+point addition. 32 bit floating numbers have 23 bits of precision for the 
+fraction field which encodes the significand M. Let's say we have a number 
+which may be too large to be perfectly represented as float. In this case, C 
+will do the best it can by approximating this number with the manitssa and the 
+exponent. Now, when we add a small number to this number, we have a case where 
+the final answer is too large to be perfectly stored. More specifically, the 
+result cannot be accurately represented in just 23 bits, so the last few 
+trailing low-order digits are essentially neglected. In this case, we have 
+that the bits representing the low-order digits are essentially "lost" in the 
+approximation, and realize that adding the smaller number did not actually
+impact the final result at all. Thus, the ordering of the numbers greatly
+matters which explains why the results are different.
+
+The most accurate would be to add in ascending order. By doing this, we 
+allow for the summation of the smaller numbers to total a big enough value
+so that when they are added to the larger numbers down the line, they 
+actually impact the final sum.  
+
+However, even this approach can be prone to large errors. Consider an 
+extreme case of a bimodal distribution of numbers where one set of numbers
+come from a distribution of extremely small numbers and the other set of 
+numbers comes from a distribution of extremely large numbers. In this case,
+even though we add the numbers in increasing order, the sum of the smaller 
+numbers may still not be large enough to affect the final sum, and hence we
+can still have a significant error. This can be extended to just the case
+where the differences in magnitude even between ascending numbers is too 
+great (so that even when adding numbers in increasing order, we have that
+consecutive numbers vary in too large of magnitudes). Also, as mentioned 
+in the prompt, it is important to consider the size of the dataset. For 
+instance, let's say we have the case where we have a billion (1/ 1billion)ths
+followed by some numbers slightly larger than 1/1billion. Even in ascending
+order, at some point, the cumulative sum of adding the (1/1billion) fractions
+will grow too large such that the next fraction or number to be added is 
+too small and thus will be neglected in the final sum. 
+
+Part B:
+-------
+
+Most of this is detailed in the C comments written in the function; we will
+present it again below. The key observation to make is that given two floats
+x, y and the need to compute their sum (x+y) accurately, we can divide the 
+sum = x + y into the sum of two components: hi and lo. Hi represents the 
+rounded (x + y) while lo stores the round-off. 
+
+This is done in the code as follows:
+
+hi = x + y;
+lo = y - (hi - x);
+
+Obviously, we need some way to store these hi and lo values, so we 
+construct a floating array called "partials." We can think of partials as
+containing all the round-offs followed by the rounded sum.
+
+Perhaps it would be clearer to walk through a small example. Say, our input
+array is [a, b, c]. Initially our partials array starts out as empty ([]). 
+In the first iteration, we look at only the first element. In this case, 
+our partials array is empty (which makes sense given that there is no round-
+offs yet), we simply push a onto the partials array (which is now [a]). In the
+second iteration, we come along b. Now, for each partial p in the partials 
+array, we add p to b and keep a running count of the rounded sum and also put
+any round-offs that may incur from these summations into our partials array. 
+In this case, we have that p is simply just a. Now, let's say that a + b
+does yield a round-off r and a rounded sum of s. We set the first element 
+of our partials array to r and then proceed to the next partial (which in this
+case is nothing). After summing the current element with every element of the 
+partials array, we have all the round-offs and the rounded running sum stored
+in our partials array for the next element of the input array to be summed 
+over. We can see that if we continue to repeat this for each element of the 
+input array, we know that by construction, our rounded running sum plus all 
+the round-off partials is the sum of the input array. We can think of this
+as keeping track of all the low-order bits that would have otherwise been 
+lost and then assimilating the sum of these round-offs with the rounded sum
+to restore the precision of the sum. 
+
+Another important note is that this method only works because each summand
+is non-overlapping meaning the lowest non-zero bit of the larger value 
+is greater than the highest bit of the smaller value. This helps us avoid
+the problem of losing low-order bits in summation. 

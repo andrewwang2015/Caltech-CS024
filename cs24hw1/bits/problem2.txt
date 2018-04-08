@@ -1,0 +1,22 @@
+Expression:  n = n & (n - 1)
+----------------------------
+
+1. Let the kth bit of n be the earliest set bit (scanning from right to left).
+   The expression n = n & (n-1) will toggle all the bits of n from the kth
+   bit (inclusive) to the 0th bit (the rightmost bit).
+
+2. To see how it works, we look at a few examples. Let our number be 9 or
+   1001 in binary. In this case, we have that k = 0 and we see that n - 1 = 8
+   or 1000. 1001 & 1000 gives us 1000 which is basically toggling all 
+   bits from bit k to bit 0 (in this case, it is only bit 0 that gets 
+   toggled). Let's say we have the number 12 or 1100. 11 would be 1011 and 
+   1100 & 1011 = 1000 and again, we see that all bits from the rightmost 
+   set bit of n (inclusive) to bit 0 are toggled.
+
+3. Essentially, we can use this expression to calculate the number of 1 bits
+   in n because however many times we do this expression to n until n becomes
+   0 is precisely the number of one bits in n. This is faster than our initial
+   approach because in our initial approach, we were always examining each bit 
+   of n individually (looping through a number of times equal to the number of
+   bits in n). In our new case, we are only looping through a number of times
+   equal to the number of one-bits in n. 

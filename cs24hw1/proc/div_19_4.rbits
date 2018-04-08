@@ -1,0 +1,8 @@
+0013 # Dividend = 19
+0004 # Divisor = 4
+0000 # Constant of 0
+0001 # Constant of 1
+80000000 # Mask to get leading sign bit
+     # Not initially set, but will be variable to hold sign bit
+     # Not initially set, but will hold the quotient
+     # Not initially set, but will hold the remainder
