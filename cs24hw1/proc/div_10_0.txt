@@ -1,0 +1,9 @@
+This yield an infinite loop. Upon further examination of the code's logic,
+it is not too difficult to see why. In this case, divisor is 0 and dividend
+is 10. This function starts by setting remainder = dividend = 10. Now, notice
+that in our while loop, we only break if remainder becomes negative
+(remainder < 0). Because the only statement to update the value of remainder
+is remainder = remainder - divisor, in the case where divisor is 0, 
+remainder remains unchanged. Thus, if we start with remainder = dividend = 10,
+remainder will always be 10, and thus we will never break out of the while
+loop. This ultimately gives rise to the infinite loop.

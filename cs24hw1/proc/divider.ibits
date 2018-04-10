@@ -2,9 +2,9 @@
 # R0 - dividend
 # R1 - divisor
 # R2 - 0 (constant)
-# R3 - 1 (constant)
-# R4 - 0x80000000 (bit mask to get leading sign bit)
-# R5 - (Temporary variable)
+# R3 - 0x80000000 (bit mask to get leading sign bit)
+# R4 - (Temporary variable)
+# R5 - Unused
 # R6- quotient
 # R7- remainder
 
@@ -13,11 +13,11 @@
 # 1: ADD R2, R0, R7        (remainder = dividend)
 # WHILE:
 #   2: SUB R7, R1, R7      (remainder = remainder - divisor)
-#   3: AND R7, R4, R5      (store the leading bit of remainder into variable)
-#   4: BNZ R5, SKIP        (If leading bit is non-zero, then we break 
+#   3: AND R7, R3, R4      (store the leading bit of remainder into variable)
+#   4: BNZ R4, SKIP        (If leading bit is non-zero, then we break 
 #                          because this means remainder is negative)
-#   5: ADD R3, R6, R6      (quotient = quotient + 1)
-#   6: BNZ R3, WHILE       (R3 holds 1, so this will always break and go to 
+#   5: INCR R6            (quotient = quotient + 1)
+#   6: BNZ R3, WHILE       (This will always break and go to 
 #                           to the "while true" loop, as desired)
 # SKIP
 #   7: ADD R7, R1, R7    (Outside while loop, remainder = remainder + divisor)
@@ -25,26 +25,26 @@
 
 # Thus, we have that WHILE = address 2
 #                    SKIP = address 7
-                     DONE = address 8
+#                    DONE = address 8
 
 # Labeled assembly
 
 # 0:    0011 1 110 110 110
 # 1:    0000 1 010 000 111
 # 2:    0010 1 111 001 111
-# 3:    1000 1 111 100 101
-# 4:    1010 0 101 000 111
-# 5:    0000 1 011 110 110
+# 3:    1000 1 111 011 100
+# 4:    1010 0 100 000 111
+# 5:    0101 1 110 000 110
 # 6:    1010 0 011 000 010
 # 7:    0000 1 111 001 111
 # 8:    1111 0 000 000 000
 
-fb6
-287
-bcf
-23e5
-2947
-2f6
-28c2
-3cf
-3c00
+fb6     #0
+287     #1
+bcf     #2
+23dc    #3
+2907    #4
+1786    #5
+28c2    #6
+3cf     #7
+3c00    #8

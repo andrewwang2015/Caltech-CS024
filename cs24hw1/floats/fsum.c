@@ -5,8 +5,6 @@
 #include <math.h>
 #include "ffunc.h"
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-
 /* This function takes an array of single-precision floating point values,
  * and computes a sum in the order of the inputs.  Very simple.
  */
