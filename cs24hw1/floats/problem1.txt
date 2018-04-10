@@ -16,7 +16,7 @@ B. We know that 0.1 = 000110011[0011] and from our calculation of part 1,
 
 C. We know from part B that each 0.1 counted has an error of 9.537 * 10^(-8)
    and because 100 hours has 60 * 60 * 10 = 3600000 counts of 0.1 second 
-   intervals, teh toatal error is 
+   intervals, the total error is: 
 
    9.537 * 10^(-8) * 3600000 = 0.343 seconds difference.
 
