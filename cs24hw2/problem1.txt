@@ -1,0 +1,11 @@
+What does the assembly code do?
+-------------------------------
+
+It computes and stores 3x^2 + 12x - 17. Details below.
+
+movq   16(%rbp), %rax      # Move x into %rax so %rax = x
+imulq  $3, %rax            # Store 3 * %rax = 3x  into %rax
+addq   $12, %rax           # Store 3%rax + 12 = 3x + 12 into %rax
+imulq  16(%rbp), %rax      # Store x(%rax) = 3x^2 + 12x into %rax
+subq   $17, %rax           # Store %rax - 17 = 3x^2 + 12x - 17 into %rax
+

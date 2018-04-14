@@ -1,0 +1,88 @@
+Answer to Problem 3.63, CS:APP3e pp.314-315
+-------------------------------------------
+
+Off the bat, looking at the jump table, and seeing that there are six 8-byte
+words of memory comprising the jump table, we know that we will have to 
+consider the paths of six cases. 
+
+Now, walking through the disassembled code. We notice that we first subtract
+0x3c = 60 (base 10) from n and then comparing if it's greater than 5. Thus,
+we know that our switch cases lie between 60 and 65 inclusive (anything 
+less than 60 or greater than 65 will go to the default case). 
+
+Now, analyzing each switch case, our first switch case lies on 4005a1.
+
+Case 1: n = 60
+result = 8 * x = 0 = 8x    (line 6)
+return result;             (line 8)
+
+Our second address of our jump table points to 4005c3 which is we see to 
+be the last line before returning, which means should go to the default case.
+Thus, we don't actually need a specific case statement for when n = 61 because
+the default case will suffice in capturing it.
+
+Case 2: n = 61 (default case)
+result = 75 + x             (line 17)
+
+Our third address is also 4005a1 which is exactly that of case 1. This means
+that in our C code, we can simply have case 1 fall through to case 3.
+    
+Case 3: n = 62 
+result = 8 * x = 0 = 8x    (line 6)
+return result;             (line 8)
+
+Our fourth address is 4005aa.
+
+Case 4: n = 63             
+result = x                 (line 9)
+result = x >> 3            (line 10)
+return result;
+
+Our fifth address is 4005b2. 
+Case 5: n = 64
+result = x                  (line 12)
+result = result << 4        (line 13)
+result = result - x         (line 14)
+%rdi = result               (line 15)
+
+
+
+Our sixth address is 4005bf. Note that %rdi = result from the fifth case
+which falls through.
+
+Case 6: n = 65
+result = result * result   (line 16)    (%rdi = %rdi * %rdi)
+
+Translating the above into actual C code, we get:
+
+
+long switch_probe(long x, long n){
+    long result = x;
+    switch(n){
+        case 60:
+            /* Falls through to next case */
+
+        /* case 61 goes to default */
+
+        case 62:
+            result *= 8;
+            break;
+
+        case 63:
+            result >>= 3;
+            break;
+
+        case 64:
+            result = (result << 4) - result;
+            /* Falls through */
+
+        case 65:
+            result *= result;
+            /* Falls through */
+
+        default:
+            result += 75;
+
+    }
+    return result;
+}
