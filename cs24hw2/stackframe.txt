@@ -3,5 +3,15 @@ Stack Contents of fact(3)
 
 Address     Value       Description
 --------    --------    ------------------------------------
-0x1008
+0x1008      Unknown     Return address back to the caller (main())
+0x1000      Unknown     Old base pointer of the main()
+0x0FF8      0x0003      fact(3) saves argument before calling fact(2)
+0x0FF0      0x2020      Return address to fact_resume
+0x0FE8      0x1000      Old base pointer used by fact(3)
+0x0FE0      0x0002      fact(2) saves argument before calling fact(2)
+0x0FD8      0x2020      Return address to fact_resume
+0x0FD0      0x0FE8      Old base pointer used by fact(2)
+0x0FC8      0x0001      fact(1) saves argument before calling fact(0)
+0x0FC0      0x2020      Return address to fact_resume
+0x0FB8      0x0FD0      Old base pointer used by fact(1)
 

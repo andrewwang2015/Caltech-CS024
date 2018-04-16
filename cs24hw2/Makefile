@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Werror
 
-all: factmain 
+all: factmain gcdmain
 
 # perhaps use this as you develop further parts 
 # of the assignment

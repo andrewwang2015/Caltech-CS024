@@ -1,4 +1,5 @@
-/* This file contains x86-64 assembly-language implementations of three
+/* 
+ * This file contains x86-64 assembly-language implementations of three
  * basic, very common math operations.
  *
  * As referenced in 3.6.6, the naive implementions for each of these 
@@ -46,8 +47,8 @@ f1:
  * This function returns the absolute value of x. These details are broken
  * down in the comments, but are summarized here. The important thing to
  * notice is the arithmetic shift right 31 times that basically gives a bit
- * mask of 0x00000000 if x is nonnegative and 0xffffffff if x is negative. Now,
- * we XOR x with the bitmask. Now, if x was previously nonnegative, the result
+ * mask of 0x00000000 if x is nonnegative and 0xffffffff if x is negative.
+ * We XOR x with the bitmask. Now, if x was previously nonnegative, the result
  * of this would still be x (the bitmask is all zeroes). Now, if x was 
  * previously negative, then XORing with a bitmask of all ones would simply
  * reverse the bits of x (which if we convert to base 10, would equal
@@ -61,17 +62,21 @@ f1:
 .globl f2
 f2:
         movl    %edi, %eax      # %eax = x
+
         movl    %eax, %edx      # %edx = %eax = x
+
         sarl    $31, %edx       # %edx >> = 31 ... 
                                 # this yields a bit mask with all bits equal
                                 # to the sign bit. 
-        xorl    %edx, %eax      # %eax = %edx XOR %eax = %edx XOR x
-                                # Now, we XOR it with the bit mask. If x
-                                # was positive, the bitmask would be 0x00000000,
-                                # and so, %eax = x. However, if x was negative
-                                # then our bitmask is 0xffffffff in which case,
+
+        xorl    %edx, %eax      # %eax = %edx XOR %eax = %edx XOR x. Now, we
+                                # XOR it with the bit mask. If x was positive
+                                # the bitmask would be 0x00000000, and so
+                                # %eax = x. However, if x was negative then
+                                # our bitmask is 0xffffffff in which case,
                                 # it would reverse all the bits of %eax so
                                 # %eax = ~x
+
         subl    %edx, %eax      # %eax = %eax - %edx. This subtracts the bit
                                 # mask from the result. If %eax was positive,
                                 # then %eax remains unchanged. If %eax was 
