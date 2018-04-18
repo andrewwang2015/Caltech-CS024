@@ -19,7 +19,7 @@ ex:
 	imull	-20(%rbp), %eax     # %eax = a * (b-c)
 	movl	%eax, %edx          
 	movl	-32(%rbp), %eax     
-	addl	%edx, %eax 			# %eax = d + %edx = d + a * (b-c)
+	addl	%edx, %eax 		    # %eax = d + %edx = d + a * (b-c)
 	movl	%eax, -4(%rbp)  	
 	movl	-4(%rbp), %eax
 	popq	%rbp
