@@ -38,7 +38,7 @@ f1:
         movl    %edi, %edx      # %edx = %edi = x
         movl    %esi, %eax      # %eax = %esi = y
         cmpl    %edx, %eax      # Compare %eax (y) and %edx (x), set flags
-        cmovg   %edx, %eax      # If >=, %eax (return value) = x
+        cmovg   %edx, %eax      # If >, %eax (return value) = x
         return                  # Return eax
 
 
@@ -89,13 +89,16 @@ f2:
 
 /*====================================================================
  * int f3(int x)
- * This function returns 1 if x is negative and 0 if x is nonnegative. 
+ * This function returns the sign of x: 1 if x is positive, 0 if x is zero
+ * and -1 if x is negative. 
  * We can see this through the use of a bitmask. Initially, %eax holds 
  * a bit mask of 0x00000000 = 0 (base 10) (if x was nonnegative), and
- * 0xffffffffo (if x was negative). Next, we use testl to set the sign flag
- * based on the sign bit of %edx = x. Then, we set %edx = 1 and if the set 
- * sign flag is > 0, then we move %edx = 1 to %eax and return 1. Otherwise,
- * we do not move 1 into it, and return 0 (which was initially set). 
+ * 0xffffffff (if x was negative). Next, we use testl to set the flags
+ * corresponding to the bitwise and of x with itself.  Next, we look at the
+ * result of (%edx & %edx). If this is > 0 (meaning that x was originally
+ * positive), then we move 1 to %eax and return. Else, we leave the bitmask 
+ * in %eax which is (0x00000000) = 0 (base 10) if x was 0 and (0xffffffff) =
+ * -1 (base 10) if x was negative.
  */
 .globl f3
 f3:
@@ -103,8 +106,11 @@ f3:
         movl    %edx, %eax      # %eax = %edx = x
         sarl    $31, %eax       # eax >>= 31 to generate bit mask consisting
                                 # of bits equal to sign bit of x
-        testl   %edx, %edx      # Sets sign flag to be that of sign of x
+        testl   %edx, %edx      # Updates flags for (edx & edx)
         movl    $1, %edx        # %edx = 1
-        cmovg   %edx, %eax      # if sign flag = 1 > 0, then %eax = %edx = 1
+        cmovg   %edx, %eax      # if (edx & edx) > 1 meaning x is positive,
+                                # then return 1. Else leave the bitmask 
+                                # as the return value (0 if x was zero, -1
+                                # if x was negative).
         ret                     # return %eax
 
