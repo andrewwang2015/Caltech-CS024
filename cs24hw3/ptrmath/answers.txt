@@ -1,0 +1,24 @@
+Answers for the "Arrays, Pointer Arithmetic, and Structs" section of CS24 HW3:
+
+Question 1:
+00 00 00 EF BE AD DE 00 00 00 00 00 BE BA FE CA
+
+Question 2:
+
+Member      Size (bytes)        Offset (bytes)
+-----       ------------        --------------
+id          4                   0
+code        5                   4
+next        8                   16
+
+Total size: 24 bytes
+Unused bytes: 7 bytes 
+
+Question 3:
+
+Breaking down arr[4].code[3]: arr[4] would get use to byte 4 * 24 = 96. 
+We know code has an offset of 4 so arr[4].code[3] would mean 96  + 4 + 3 =
+byte 103. Now, we know that p is a char pointer so because chars are 
+1 byte, offset is in increments of 1. 
+
+Thus offset = 103. 
