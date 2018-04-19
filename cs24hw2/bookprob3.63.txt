@@ -56,9 +56,9 @@ result = result * result   (line 16)    (%rdi = %rdi * %rdi)
 Translating the above into actual C code, we get:
 
 
-long switch_probe(long x, long n){
+long switch_probe(long x, long n) {
     long result = x;
-    switch(n){
+    switch(n) {
         case 60:
             /* Falls through to next case */
 

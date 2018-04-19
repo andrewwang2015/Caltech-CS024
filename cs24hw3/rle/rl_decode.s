@@ -37,8 +37,8 @@ rl_decode:
         jge     find_space_done
 
 find_space_loop:
-        add     (%rdi, %rcx), %bl         # Add in the count, then move                         
-        add     $1, %rcx                  # forward to the next count!
+        add     (%rdi, %rcx), %ebx        # Add in the count, then move                         
+        add     $2, %rcx                  # forward to the next count!
 
         cmp     %esi, %ecx
         jl      find_space_loop
@@ -48,10 +48,19 @@ find_space_done:
         # Allocate memory for the decoded data using malloc.
         # Number of bytes required goes in rdi, which we were using before.
         # Pointer to allocated memory will be returned in %rax.
+
+        # Save caller-save registers before calling malloc
+        push    %rsi               # Caller save register
+        push    %rdx               # Caller save register 
+
         push    %rdi
         mov     %rbx, %rdi         # Number of bytes to allocate...
         call    malloc
         pop     %rdi
+
+        # Pop caller-save registers after malloc is finished
+        pop     %rdx 
+        pop     %rsi 
 
         # Write the length of the decoded output to the output-variable
         mov     %ebx, (%rdx)      # store computed size into this location
@@ -71,6 +80,7 @@ decode_loop:
 
 write_loop:
         mov     %bl, (%rax, %r10)
+        inc     %r10                     # Increment index in output buffer
         dec     %bh
         jnz     write_loop
 

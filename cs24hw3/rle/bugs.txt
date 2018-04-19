@@ -2,4 +2,35 @@ Bugs in rl_decode() function:
 -----------------------------
 
 
+Bug #1:
+When we are summing up the counts, we were using %bl (byte 8) of the %rbx
+register. However, because %bl is only one byte, this can certainly overflow.
+Thus, to allow for the addition of all the counts without overflow, we change
+%bl to %ebx, so now there are 4 bytes to hold the total sum.
 
+Bug #2:
+In find_space_loop, Ben chose to add 1 to the loop variable to forward
+to the next count. However, he must have forgotten that our input data
+comes in the form of [count][value] pairs. Because find_space_loop is only
+supposed to loop over all the counts and only the counts, we need to add
+2 to the loop variable instead of 1. Previously, when Ben was only adding 1
+he was adding counts to values, which is not what we want to do in 
+determining the amount of space required to decode the data. 
+
+Bug #3:
+In find_space_done, we call malloc, but Ben forgot to save the caller-save 
+registers onto the stack. Because %rsi and %rdx are caller-save, they need
+to be pushed onto the stack before the call to malloc and then popped off the
+stack when malloc is finished. Otherwise, malloc could mess with these
+registers under the assumption that their previous values have been saved,
+so if they are not, then when the rest of rl_decode uses the values of 
+%rsi and %rdx, they will not get the values that are expecting. 
+
+Bug #4:
+In write_loop, %r10, representing the index in the output buffer is 
+never incremented. Thus, we are always writing to the same memory spot (%rax).
+To fix this, I simply added a line to increment %r10 before the line to
+decrement %bh which is important because the jnz should depend on the flags
+set from decrementing %bh (the number of repetitions) as opposed to the 
+incrementing %r10 (in which case, we would always jump and end up with
+an infinite loop).  
