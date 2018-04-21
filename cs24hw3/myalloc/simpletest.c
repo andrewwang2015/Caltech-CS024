@@ -34,28 +34,36 @@ int main(int argc, char *argv[]) {
     /* Specify the memory pool size, then initialize the allocator. */
     MEMORY_SIZE = 1000;
     init_myalloc();
-    sanity_check();
+    //sanity_check();
 
     /* Perform simple allocations and deallocations. */
     /* Change the below code as you see fit, to test various scenarios. */
 
     unsigned char *a = allocate(96, 'A');
     sanity_check();
+    myfree(a);
+    sanity_check();
+    myfree(a);
+    sanity_check();
+/*    sanity_check();
     unsigned char *b = allocate(196, 'B');
     sanity_check();
-    /*
+    
     unsigned char *c = allocate(296, 'C');
     sanity_check();
     unsigned char *d = allocate(396, 'D');
-    sanity_check();*/
-
+    sanity_check();
+    printf("\n");
+    printf("----------- FREEING ----------- \n");
+    printf("\n");
     myfree(a);
     sanity_check();
     myfree(b);
     sanity_check();
-    /*
     myfree(c);
-    myfree(d)*/;
+    sanity_check();
+    myfree(d);
+    sanity_check();*/
 
     close_myalloc();
 
