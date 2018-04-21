@@ -10,7 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <assert.h>
 #include "myalloc.h"
 
 
@@ -24,15 +24,15 @@ int MEMORY_SIZE;
 unsigned char *mem;
 
 /* 
- * For both the header and the footer, a negative value indicates that the 
- * block is allocated and a positive value indicates that the block is free. 
+ * For the header, a negative value indicates that the block is allocated
+ * and a positive value indicates that the block is free. 
  */ 
 
 /* Size of the header (bytes) */
 static unsigned const int HEADER = 4;
-/* Size of footer (bytes) */
-static unsigned const int FOOTER = 4;
-static unsigned char *freeptr;
+
+/* Pointer that is used by many functions to traverse the blocks of memory. */
+static unsigned char *iterator;
 
 
 /*!
@@ -60,12 +60,10 @@ void init_myalloc() {
     }
 
     /*
-     * Initialize the initial state of your memory pool. We add a header and 
-     * footer of size (MEMORY_SIZE) - HEADER_SIZE - FOOTER_SIZE. 
+     * Initialize the initial state of your memory pool. 
     */
-    *((int *)mem) = MEMORY_SIZE - HEADER_SIZE - FOOTER_SIZE;
-    *((int *)(mem + MEMORY_SIZE - FOOTER_SIZE)) = (
-        MEMORY_SIZE - HEADER_SIZE - FOOTER_SIZE);
+    *((int *)mem) = MEMORY_SIZE - HEADER;
+
 }
 
 
@@ -74,24 +72,71 @@ void init_myalloc() {
  * allocation fails.
  */
 unsigned char *myalloc(int size) {
+    /* TODO: Write comments/ description */
 
-    /* TODO:  The unacceptable allocator simply checks to see if there are at
-     *        least "size" bytes left in the pool, and if so, the caller gets
-     *        the current "free-pointer" value, and then freeptr is incremented
-     *        by size bytes.
-     *
-     *        Your allocator will be more sophisticated!
-     */
-    if (freeptr + size < mem + MEMORY_SIZE) {
-        unsigned char *resultptr = freeptr;
-        freeptr += size;
-        return resultptr;
+    iterator = mem;
+    unsigned char *return_ptr = NULL;
+
+    int remaining_space = *((int *) iterator);
+    int shift_amount = 0;
+
+    /* Continue iterating until we find a block that has adequate space */
+    while (size > remaining_space) {
+        /* This stores how many bytes to move over to get to next header */
+        shift_amount = HEADER + abs(remaining_space);
+
+        /* This marks the location of next block's header */
+        iterator += shift_amount;
+
+        /* Make sure this is within range */
+        if (iterator < (mem + MEMORY_SIZE)) {
+            /* Examine the next block */
+            remaining_space = *((int *) iterator);
+        } else {
+            iterator = NULL;
+            break;
+        }
     }
-    else {
+
+    /* If we have a valid block to add to, we add. Else we return 0. */
+    if (iterator != NULL) {
+
+        /* 
+         * Set the return pointer to where the data starts for the block
+         * inserted 
+         */
+
+        return_ptr = iterator + HEADER; 
+
+
+        /* 
+         * Calculate amount of potential space if we were to split the block.
+         * The amount of space left over is equal to the total remaining space
+         * minus the size of first block to be inserted minus the amount of 
+         * space for the next header. 
+         */
+
+        int space_for_second = remaining_space - size - HEADER;
+
+        /* 
+         * If we do not have space for second block, we mark the current
+         * block as full. Otherwise, we split. 
+         */
+        if (space_for_second <= 0) {
+            *((int *) iterator) = - remaining_space;
+        } else {
+            *((int *) iterator) = - size;
+            iterator += (size + HEADER);
+            *((int *) iterator) = space_for_second;
+        }
+        
+    } else {
         fprintf(stderr, "myalloc: cannot service request of size %d with"
-                " %lx bytes allocated\n", size, (freeptr - mem));
+                " %lx bytes allocated\n", size, (iterator - mem));
         return (unsigned char *) 0;
     }
+
+    return return_ptr;
 }
 
 
@@ -100,13 +145,61 @@ unsigned char *myalloc(int size) {
  * myalloc().
  */
 void myfree(unsigned char *oldptr) {
-    /* TODO:
-     *
-     * The unacceptable allocator does nothing -- that's part of why this is
-     * unacceptable!
-     *
-     * Allocations will succeed for a little while...
+    /* 
+     * oldptr signifies where the data starts, so we need to backtrack to get 
+     * the header. 
      */
+    iterator = oldptr;
+    iterator -= HEADER;
+
+    int free_space = abs(*((int *) iterator));
+
+    /* Check the right adjacent block to see if coalescing is possible. */
+    iterator += (HEADER + free_space);
+
+    /* Make sure we are not checking the adjacent block of the last block. */
+    if (iterator < (mem + MEMORY_SIZE)) {
+        int right_block_space = *((int *) iterator);
+        /* 
+         * Positive header means the block is free, and so we can coalesce. 
+         * Do not forget to add in the header size as well.
+         */
+        if (right_block_space > 0) {
+            free_space += (right_block_space + HEADER);
+            /* Change header of freed block to account for coalescing. */
+            *((int *) (oldptr - HEADER)) = free_space;
+        } else {
+            *((int *) iterator) = free_space;
+        }        
+    }
+
+    /*
+     * Now, we look to colaesce with the left adjacent block. We do this by
+     * doing a linear traversal starting from the beginning and looking at
+     * adjacent blocks for possible coalescing. We also know that by the way
+     * we allocate, that we can break as soon as we see a pair of adjacent 
+     * blocks that can be colaesced.
+     */
+     unsigned char *ptr_1 = mem;
+     unsigned char *ptr_2 = mem + HEADER + abs(*((int *) ptr_1));
+
+     /* Avoid accessing a header that is not within the block range. */
+     while (ptr_2 < (mem + MEMORY_SIZE)) {
+        int size_1 = *((int *) ptr_1);
+        int size_2 = *((int *) ptr_2);
+        /* If we have two adjacent blocks with free space, let's coalesce.*/
+        if (size_1 > 0 && size_2 > 0) {
+            int combined_size = size_1 + size_2;
+            *((int *) ptr_1) = combined_size + HEADER;
+
+        } else {
+            /* Otherwise, continue moving pointers forwards. */
+            ptr_1 = ptr_2;
+            ptr_2 = ptr_2 + HEADER + abs(*((int *) ptr_2));
+        }
+     }
+
+    return;
 }
 
 /*!
@@ -117,4 +210,26 @@ void myfree(unsigned char *oldptr) {
  */
 void close_myalloc() {
     free(mem);
+}
+
+/* 
+ * Implements basic verification code to ensure heap is managed correctly. 
+ * We do this by traversing all blocks in heap and computing the sum of 
+ * allocated and free space; this sum should match the pool size. 
+ */
+void sanity_check() {
+    /* Start at the beginning. */
+    iterator = mem;
+    int total_space = 0;
+
+    while (iterator < (mem + MEMORY_SIZE)) {
+        /* Look at header and get the block size. */
+        int block_size = abs(*((int *) iterator)) + HEADER;
+        total_space += block_size;        
+
+        /* Move iterator to the next header. */
+        iterator += block_size;
+    }
+
+    assert(total_space == MEMORY_SIZE);
 }

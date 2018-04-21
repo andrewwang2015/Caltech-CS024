@@ -27,3 +27,6 @@ void myfree(unsigned char *oldptr);
 
 /* Clean up the allocator and memory pool state. */
 void close_myalloc();
+
+/* Performs basic verification */
+void sanity_check();
