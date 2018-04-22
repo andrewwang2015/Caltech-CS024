@@ -28,9 +28,8 @@ unsigned char *mem;
  * and a positive value indicates that the block is free. 
  */ 
 
-/* Size of the header and footer (bytes) */
+/* Size of the header (bytes) */
 static unsigned const int HEADER = 4;
-static unsigned const int FOOTER = 4;
 
 /* Pointer that is used by many functions to traverse the blocks of memory. */
 static unsigned char *iterator;
@@ -61,12 +60,11 @@ void init_myalloc() {
     }
 
     /*
-     * Initialize the header and footer of your memory pool. This is an O(1)
+     * Initialize the initial state of your memory pool. This is an O(1)
      * operation given that we have the pointer to the beginning of our 
      * memory pool.
     */
-    *((int *)mem) = MEMORY_SIZE - HEADER - FOOTER;
-    *((int *)(mem + MEMORY_SIZE - FOOTER)) = MEMORY_SIZE - HEADER - FOOTER;
+    *((int *)mem) = MEMORY_SIZE - HEADER;
 
 }
 
@@ -100,7 +98,7 @@ unsigned char *myalloc(int size) {
             return_ptr = iterator;
         }
         /* This stores how many bytes to move over to get to next header. */
-        shift_amount = HEADER + abs(remaining_space) + FOOTER ;
+        shift_amount = HEADER + abs(remaining_space);
 
         /* This marks the location of next block's header. */
         iterator += shift_amount;
@@ -112,10 +110,10 @@ unsigned char *myalloc(int size) {
          * Calculate amount of potential space if we were to split the block.
          * The amount of space left over is equal to the total remaining space
          * minus the size of first block to be inserted minus the amount of 
-         * space for the next header and footer. 
+         * space for the next header. 
          */
 
-        int space_for_second = min_block_size - size - HEADER - FOOTER;
+        int space_for_second = min_block_size - size - HEADER;
 
         /* 
          * If we do not have space for second block, we mark the current
@@ -125,18 +123,8 @@ unsigned char *myalloc(int size) {
         if (space_for_second <= 0) {
             *((int *) iterator) = -remaining_space;
         } else {
-            /* Change header of current block. */
             *((int *) iterator) = -size;
-            /* Change footer of current block. */
             iterator += (size + HEADER);
-            *((int *) iterator) = -size;
-
-            /* Initialize header of second block. */
-            iterator += FOOTER;
-            *((int *) iterator) = space_for_second;
-
-            /* Initialize footer of second block. */
-            iterator += (space_for_second + HEADER);
             *((int *) iterator) = space_for_second;
         }
 
@@ -166,19 +154,13 @@ unsigned char *myalloc(int size) {
  * block by block.
  */
 void myfree(unsigned char *oldptr) {
-
     /* 
      * oldptr signifies where the data starts, so we need to backtrack to get 
      * the header. 
      */
     iterator = oldptr;
     iterator -= HEADER;
-    /* 
-     * This boolean will represent whether or not we coalece to the left. 
-     * This will affect which header we modify.
-     */
-
-    int is_left_free = 0;
+    
     int free_space = abs(*((int *) iterator));
 
     /* 
@@ -186,71 +168,55 @@ void myfree(unsigned char *oldptr) {
      * that having the header allows us direct access to the adjacent right 
      * block, meaning coalescing to the right is an O(1) time operation.
      */
-    iterator += (HEADER + free_space + FOOTER);
+    iterator += (HEADER + free_space);
 
-    /* Make sure we are not checking the right block of the last block. */
+    /* Make sure we are not checking the adjacent block of the last block. */
     if (iterator < (mem + MEMORY_SIZE)) {
         int right_block_space = *((int *) iterator);
         /* 
          * Positive header means the block is free, and so we can coalesce. 
-         * Do not forget to add in the header and footer size as well because
-         * merging blocks means one less header and footer.
+         * Do not forget to add in the header size as well.
          */
         if (right_block_space > 0) {
-            free_space += (right_block_space + HEADER + FOOTER);
+            free_space += (right_block_space + HEADER);
         }       
     }
     
-    /* 
-     * Check the left adjacent block to see if coalescing is possible. Note 
-     * that having the footer allows us direct access to the adjacent left 
-     * block, meaning coalescing to the left is also an O(1) time operation.
+    /* Change header of freed block to account for coalescing to the right. */
+    *((int *) (oldptr - HEADER)) = free_space;
+
+    /*
+     * Now, we look to colaesce with the left adjacent block. We do this by
+     * doing a linear traversal (O(N)) starting from the beginning and looking 
+     * at adjacent blocks for possible coalescing. We know that by the way
+     * we coalesce, we can break out of our traversal of blocks once we find 
+     * a pair of adjacent blocks that both have positive space and can thus 
+     * be coalesced. Otherwise, if we reach the end of the memory pool and 
+     * find no pair of adjacent blocks with these properties, then that means
+     * our original block to be freed cannot be coalesced with its adjacent
+     * left block.
      */
-
-    /* Get to the footer of the block to the left. */
-    iterator = oldptr - HEADER - FOOTER;
     
-    int left_block_space;
+     unsigned char *ptr_1 = mem;
+     unsigned char *ptr_2 = mem + HEADER + abs(*((int *) ptr_1));
 
-    /* Make sure we are not checking the left block of the first block. */
-    if (iterator > mem) {
-        left_block_space = *((int *) iterator);
-        /* 
-         * Positive footer means the left block is free, and so we can 
-         * coalesce. Again, do not forget about the HEADER and FOOTER.
-         */
-        if (left_block_space > 0) {
-            is_left_free = 1;
-            free_space += (left_block_space + HEADER + FOOTER);
-        } 
-    }
-
-    if (is_left_free) {
-        /* 
-         * Move iterator to start of header of left block. Before, iterator
-         * was at the footer of the left block.
-         */
-        iterator -= (left_block_space + HEADER);
-        *((int *) iterator) = free_space;
-
-        /* Move iterator along to set the footer. */
-        iterator += (HEADER + free_space);
-        *((int *) iterator) = free_space;
-    }
-    else {
-        /* 
-         * In this case, we account for the scenarios of coalescing to
-         * the right and not colaescing to the right. Note that free_space
-         * determines where we mark the footer so if we can coalesce to 
-         * the right, then free_space would be larger to account for that.
-         */
-
-        /* Change header of current block to be freed. */
-        *((int *) (oldptr - HEADER)) = free_space;
-
-        /* Change footer. */
-        *((int *) (oldptr + free_space)) = free_space;
-    }
+     /* Avoid accessing a header that is not within the block range. */
+     while (ptr_2 < (mem + MEMORY_SIZE)) {
+        int size_1 = *((int *) ptr_1);
+        int size_2 = *((int *) ptr_2);
+        /* If we have two adjacent blocks with free space, let's coalesce.*/
+        if (size_1 > 0 && size_2 > 0) {
+            int combined_size = size_1 + size_2;
+            /* We also gain header space from combining two blocks to one. */
+            *((int *) ptr_1) = combined_size + HEADER;
+            break;
+        } else {
+            /* Otherwise, continue moving pointers forwards. */
+            ptr_1 = ptr_2;
+            ptr_2 = ptr_2 + HEADER + abs(*((int *) ptr_2));
+        }
+     }
+      
     return;
 }
 
@@ -277,7 +243,7 @@ void sanity_check() {
 
     while (iterator < (mem + MEMORY_SIZE)) {
         /* Look at header and get the block size. */
-        int block_size = abs(*((int *) iterator)) + HEADER + FOOTER;
+        int block_size = abs(*((int *) iterator)) + HEADER;
         total_space += block_size;        
         num_blocks++;
 
@@ -285,7 +251,7 @@ void sanity_check() {
         printf("Block %d: %d. ", num_blocks, *((int *) iterator));
 
         /* Move iterator to the next header. */
-        iterator += (block_size);
+        iterator += block_size;
     }
     printf("Total space used: %d.\n", total_space);
 

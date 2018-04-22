@@ -1,0 +1,23 @@
+PART A
+
+1. myfree() on address that did not originate from myalloc()?
+
+This will depend on what is stored in the address 4 bytes before the input 
+because we subtract the header size from the input pointer to see what the 
+current block size is. Now, let's call this value x. Given that this 
+
+2. myfree() on address contained within a memory block returned by myalloc()?
+
+3. myfree() on address that has already been freed?
+
+Currently, the program will try to coalesce the block to be freed with the
+left and the right and realize that the block cannot be coalesced (because
+the block was previously freed and coalesced then). Thus, the block and header
+will be unchanged, but we do waste time (linear scan to coalesce) redundantly
+checking adjacent blocks. 
+
+PART B
+
+A.1 can be resolved by simply keeping track of the start and end addresses
+of the memory pool, and doing a check everytime we free to make sure that the 
+input address lies within our designated range.
