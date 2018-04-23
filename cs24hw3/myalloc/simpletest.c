@@ -54,6 +54,8 @@ int main(int argc, char *argv[]) {
     sanity_check();
     myfree(b);
     sanity_check();
+    myfree(a);
+    sanity_check();
 
     //sanity_check();
 /*    myfree(a);

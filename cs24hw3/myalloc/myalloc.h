@@ -14,7 +14,7 @@ extern int MEMORY_SIZE;
 
 
 /* Initializes allocator state, and memory pool state too. */
-void init_myalloc();
+void init_myalloc(void);
 
 
 /* Attempt to allocate a chunk of memory of "size" bytes. */
@@ -26,7 +26,8 @@ void myfree(unsigned char *oldptr);
 
 
 /* Clean up the allocator and memory pool state. */
-void close_myalloc();
+void close_myalloc(void);
 
-/* Performs basic verification */
-void sanity_check();
+
+/* Performs basic verification of memory pool. Used for debugging purposes. */
+void sanity_check(void);

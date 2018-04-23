@@ -46,7 +46,7 @@ static unsigned char *iterator;
  * allocator would request a memory region from the operating system (see the
  * C standard function sbrk(), for example).
  */
-void init_myalloc() {
+void init_myalloc(void) {
 
     /*
      * Allocate the entire memory pool, from which our simple allocator will
@@ -61,12 +61,12 @@ void init_myalloc() {
     }
 
     /*
-     * Initialize the header and footer of your memory pool. This is an O(1)
+     * Initializes the header and footer of our memory pool. This is an O(1)
      * operation given that we have the pointer to the beginning of our 
      * memory pool.
     */
-    *((int *)mem) = MEMORY_SIZE - HEADER - FOOTER;
-    *((int *)(mem + MEMORY_SIZE - FOOTER)) = MEMORY_SIZE - HEADER - FOOTER;
+    *((int *) mem) = MEMORY_SIZE - HEADER - FOOTER;
+    *((int *) (mem + MEMORY_SIZE - FOOTER)) = MEMORY_SIZE - HEADER - FOOTER;
 
 }
 
@@ -94,6 +94,7 @@ unsigned char *myalloc(int size) {
     /* Linearly traverse all blocks to find "best fit". */
     while (iterator < (mem + MEMORY_SIZE)) {
         remaining_space = *((int *) iterator);
+
         /* Find the smallest free block that can fit the chunk of memory. */
         if (remaining_space >= size && remaining_space < min_block_size) {
             min_block_size = remaining_space;
@@ -123,10 +124,15 @@ unsigned char *myalloc(int size) {
          */
         iterator = return_ptr;
         if (space_for_second <= 0) {
+
+            /* Make remaining_space negative to denote it is now allocated. */
             *((int *) iterator) = -remaining_space;
+
         } else {
+
             /* Change header of current block. */
             *((int *) iterator) = -size;
+
             /* Change footer of current block. */
             iterator += (size + HEADER);
             *((int *) iterator) = -size;
@@ -145,6 +151,7 @@ unsigned char *myalloc(int size) {
          * inserted (move past the HEADER).
          */
         return_ptr += HEADER; 
+
     } else {
         fprintf(stderr, "myalloc: cannot service request of size %d with"
                 " %lx bytes allocated\n", size, (iterator - mem));
@@ -157,13 +164,13 @@ unsigned char *myalloc(int size) {
 
 /*!
  * Free a previously allocated pointer.  oldptr should be an address returned 
- * by myalloc(). Overall, this deallocation procedure takes linear time O(N)
- * where N is the number of allocated blocks. Coalescing the adjacent block
- * to the right is an O(1) operation because our header specifies how to get
- * to the next block, but coalescing the adjacent block to the left is an 
- * O(N) operation because we cannot get to the header of the previous block
- * without starting from the beginning of the memory pool and traversing
- * block by block.
+ * by myalloc(). This is a constant time deallocation because we have headers
+ * and footers to help us look at the right block and left block, respectively
+ * for coalescing. More specifically, for coalescing to the right, we simply
+ * look at the header of the right/next block and check its sign to see if we
+ * can merge it with the current block. For coalescing to the left, we look at 
+ * the footer of the left/previous block and check its sign to see if we can
+ * merge it with the current block. 
  */
 void myfree(unsigned char *oldptr) {
 
@@ -173,13 +180,26 @@ void myfree(unsigned char *oldptr) {
      */
     iterator = oldptr;
     iterator -= HEADER;
+
     /* 
-     * This boolean will represent whether or not we coalece to the left. 
-     * This will affect which header we modify.
+     * If block was previously freed, meaning its header value is positive,
+     * then throw an error.
+     */ 
+
+    int current_header = *((int *) iterator);
+    if (current_header > 0) {
+        fprintf(stderr, "myalloc: cannot free memory address "
+            "previously freed.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * This will store how much free space will exist after deallocation 
+     * and coalescing. It will start off to just hold the value of the block
+     * to be freed, but will be added to in cases of coalescing.
      */
 
-    int is_left_free = 0;
-    int free_space = abs(*((int *) iterator));
+    int free_space = abs(current_header);
 
     /* 
      * Check the right adjacent block to see if coalescing is possible. Note 
@@ -210,6 +230,17 @@ void myfree(unsigned char *oldptr) {
     /* Get to the footer of the block to the left. */
     iterator = oldptr - HEADER - FOOTER;
     
+    /* 
+     * This boolean will represent whether or not we coalece to the left. 
+     * This will affect which block's header we modify.
+     */
+
+    int is_left_free = 0;
+
+    /* 
+     * This will store the size of the left block, so we can change the
+     * left block's header if we end up coalescing to the left. 
+     */
     int left_block_space;
 
     /* Make sure we are not checking the left block of the first block. */
@@ -217,7 +248,8 @@ void myfree(unsigned char *oldptr) {
         left_block_space = *((int *) iterator);
         /* 
          * Positive footer means the left block is free, and so we can 
-         * coalesce. Again, do not forget about the HEADER and FOOTER.
+         * coalesce. Again, merging blocks means we have additional space
+         * from one less header and footer.
          */
         if (left_block_space > 0) {
             is_left_free = 1;
@@ -239,8 +271,8 @@ void myfree(unsigned char *oldptr) {
     }
     else {
         /* 
-         * In this case, we account for the scenarios of coalescing to
-         * the right and not colaescing to the right. Note that free_space
+         * In this case, we account for the scenarios of either coalescing to
+         * the right or not colaescing to the right. Note that free_space
          * determines where we mark the footer so if we can coalesce to 
          * the right, then free_space would be larger to account for that.
          */
@@ -251,6 +283,7 @@ void myfree(unsigned char *oldptr) {
         /* Change footer. */
         *((int *) (oldptr + free_space)) = free_space;
     }
+
     return;
 }
 
@@ -260,16 +293,17 @@ void myfree(unsigned char *oldptr) {
  * ensures that the test program doesn't leak memory, so it's easy to check
  * if the allocator does.
  */
-void close_myalloc() {
+void close_myalloc(void) {
     free(mem);
 }
 
 /* 
  * Implements basic verification code to ensure heap is managed correctly. 
  * We do this by traversing all blocks in heap and computing the sum of 
- * allocated and free space; this sum should match the pool size. 
+ * allocated and free space; this sum should match the pool size. In addition,
+ * we output each block and its corresponding size. 
  */
-void sanity_check() {
+void sanity_check(void) {
     /* Start at the beginning of memory pool. */
     iterator = mem;
     int total_space = 0;
@@ -287,8 +321,10 @@ void sanity_check() {
         /* Move iterator to the next header. */
         iterator += (block_size);
     }
+
     printf("Total space used: %d.\n", total_space);
 
     /* Make sure that the space usage adds up. */
     assert(total_space == MEMORY_SIZE);
+    return;
 }
