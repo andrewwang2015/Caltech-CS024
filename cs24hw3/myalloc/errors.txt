@@ -75,3 +75,7 @@ we can throw an error. The drawback to this approach is that it requires
 a bit more space to store the proposed character flag.
 
 A.3 is already resolved in program and explained in part A.
+
+NOTE: I also implemented linear time deallocation with first fit and 
+linear time deallocation with best fit in myalloc_firstfit.c and 
+myalloc_bestfit.c, respectively. 

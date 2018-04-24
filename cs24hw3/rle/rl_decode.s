@@ -37,8 +37,15 @@ rl_decode:
         jge     find_space_done
 
 find_space_loop:
-        add     (%rdi, %rcx), %ebx        # Add in the count, then move                         
-        add     $2, %rcx                  # forward to the next count!
+        mov     $0, %r8b                   # %r8b = temp. 1 byte 
+                                           # register to hold counts
+        add     (%rdi, %rcx), %r8b         # Add in the count
+
+        movzx   %r8b, %r9d                 # Move our byte register w/ zero
+                                           # extending to 4 byte register.
+        add     %r9d, %ebx                 # Now, we can add registers of 
+                                           # of same size together.
+        add     $2, %rcx                   # Forward to the next count!
 
         cmp     %esi, %ecx
         jl      find_space_loop

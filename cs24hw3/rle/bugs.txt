@@ -5,8 +5,17 @@ Bugs in rl_decode() function:
 Bug #1:
 When we are summing up the counts, we were using %bl (byte 8) of the %rbx
 register. However, because %bl is only one byte, this can certainly overflow.
-Thus, to allow for the addition of all the counts without overflow, we change
-%bl to %ebx, so now there are 4 bytes to hold the total sum.
+Thus, we must figure out a way so that we can store the sum of the counts in
+a larger register, namely %ebx. To do this, I use another 1 byte register 
+(%r8b), being sure to zero it out every iteration of the loop, and for each
+iteration, moving the count to that register. We need this register to be 1
+byte because we are only expecting a 1 byte value for the count and do not
+want to read more than 1 byte worth of information from the input. Now that
+I have the count in %r8b, I need somehow to add it to %ebx 4 byte register
+that accumulates these counts and keeps track of the total sum. We know that
+add takes in two registers of the same size, so we first move %r8b (with
+zero extending) to %r9d and then adding %r9d to %ebx. Doing all of this 
+ensures that we can keep an accurate summation of counts.
 
 Bug #2:
 In find_space_loop, Ben chose to add 1 to the loop variable to forward
