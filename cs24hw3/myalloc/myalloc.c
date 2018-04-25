@@ -23,14 +23,15 @@
 int MEMORY_SIZE;
 unsigned char *mem;
 
-/* 
- * For the header, a negative value indicates that the block is allocated
- * and a positive value indicates that the block is free. 
- */ 
 
-/* Size of the header and footer (bytes) */
-static unsigned const int HEADER = 4;
-static unsigned const int FOOTER = 4;
+/* 
+ * Size of the header and footer (bytes). They will store the block sizes as 
+ * ints with the sign of the int signifying whether it is free or allocated.
+ * A negative value indicates that the block is allocated while a positive 
+ * value indicates that the block is free. 
+ */
+static unsigned const int HEADER = sizeof(int);
+static unsigned const int FOOTER = sizeof(int);
 
 /* Pointer that is used by many functions to traverse the blocks of memory. */
 static unsigned char *iterator;

@@ -13,12 +13,15 @@ If this value is positive, then my current program will throw an error and
 exit because it's going to think that the user is attempting to free a block
 that was previously freed. Now, for a nonpositive value, my program is going
 to treat it like a valid block and attempt to coalesce the right and left 
-blocks. In such cases, because our input address does not lie at the start of 
+blocks. Immediately, we are at risk for another seg. fault because in 
+calculating the start addresses of the left and right blocks, there is a high
+possibility of dereferencing addresses not within our memory pool. If we do
+not seg.fault, because our input address does not lie at the start of 
 a valid block to begin with, we know that after doing the calculations for 
 coalescing, that when a header and footer needs to be updated (due to 
 block/s being freed), that it will likely overwrite locations that are not 
 designed to hold size data (locations that are meant to store real data NOT 
-header and footer data). All in all, our memory would be corrupted. More
+header and footer data). All in all, our memory pool would be corrupted. More
 specifically, the 4 bytes that will be written over to store the header 
 information for this errant block will likely write over real data. Similarly,
 the 4 bytes that will be written over to store the footer information for
@@ -34,11 +37,13 @@ This is very similar to the above scenario. One difference is that when we
 attempt to get the int 4 bytes before this address, we will not get a 
 segmentation fault because this memory address will be contained in our memory
 address. Again, if the integer stored at this memory address is positive,
-we will throw an error and positive. However, if this integer is nonpositive,
+we will throw an error and exit. However, if this integer is nonpositive,
 the risk of corruption is still the same. Because we will still have to 
 write header (4 bytes) and footer (4 bytes) information for the freed block, 
-we will likely write over real data (risk of seg. faulting in writing the 
-footer still exists as before). 
+we will likely write over real data. Again, the risk of seg. faulting in
+doing the calculation to find the left and right blocks for coalescing exists
+given that we are reading sizes of blocks at non header/footer locations, and
+can thus try to read from addresses not within our memory pool. 
 
 3. myfree() on address that has already been freed?
 
@@ -65,14 +70,13 @@ like we do in my sanity_check function) and looking at the locations where
 each block starts. If the input address is not among these address locations
 where proper blocks start,then we can throw an error because we will know that
 the input address was not contained within a memory block returned by 
-myalloc(). Additionally, a more time efficient way would be store some extra 
-information in headers (such as a character) that marks the start of the 
-subsequent block as a valid starting location. Now, if we come across an
-address that does not start at a proper location, then we can easily check
-this by backtracking to where the header is supposed to be and checking
-to see if this character flag exists and when it sees that it does not,
-we can throw an error. The drawback to this approach is that it requires
-a bit more space to store the proposed character flag.
+myalloc(). Additionally, a more time efficient way would be to simply store 
+a hashset of addresses that are valid block start locations and everytime we
+free, we check to see if the address is in this hashset. If it's not, then we
+know that it's not a valid location of a block start and can thus terminate
+and throw an error. We must be careful to update the hashset carefully 
+(being sure that we update the hashset correctly in the case of coalescing 
+because in that case, multiple blocks can get combined into one). 
 
 A.3 is already resolved in program and explained in part A.
 
