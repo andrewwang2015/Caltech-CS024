@@ -41,20 +41,20 @@ int main(int argc, char *argv[]) {
 
     unsigned char *a = allocate(92, 'A');
     sanity_check();
-    unsigned char *b = allocate(193, 'B');
+    unsigned char *b = allocate(192, 'B');
     sanity_check();
     
     unsigned char *c = allocate(292, 'C');
     sanity_check();
-/*    unsigned char *d = allocate(391, 'D');
-    sanity_check();*/
-    myfree(a);
-    sanity_check();
-    myfree(c);
+    unsigned char *d = allocate(392, 'D');
     sanity_check();
     myfree(b);
     sanity_check();
+    myfree(c);
+    sanity_check();
     myfree(a);
+    sanity_check();
+    myfree(d);
     sanity_check();
 
     //sanity_check();

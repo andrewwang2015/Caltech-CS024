@@ -11,14 +11,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <limits.h>
 #include "myalloc.h"
 
 
 /*!
  * These variables are used to specify the size and address of the memory pool
- * that the simple allocator works against.  The memory pool is allocated within
- * init_myalloc(), and then myalloc() and free() work against this pool of
- * memory that mem points to.
+ * that the simple allocator works against.  The memory pool is allocated 
+ * within init_myalloc(), and then myalloc() and free() work against this 
+ * pool of memory that mem points to.
  */
 int MEMORY_SIZE;
 unsigned char *mem;
@@ -38,8 +39,8 @@ static unsigned char *iterator;
 
 
 /*!
- * This function initializes both the allocator state, and the memory pool.  It
- * must be called before myalloc() or myfree() will work at all.
+ * This function initializes both the allocator state, and the memory pool. 
+ * It must be called before myalloc() or myfree() will work at all.
  *
  * Note that we allocate the entire memory pool using malloc().  This is so we
  * can create different memory-pool sizes for testing.  Obviously, in a real
@@ -56,18 +57,19 @@ void init_myalloc(void) {
     mem = (unsigned char *) malloc(MEMORY_SIZE);
     if (mem == 0) {
         fprintf(stderr,
-                "init_myalloc: could not get %d bytes from the system\n",
-		MEMORY_SIZE);
+                "init_myalloc: could not get %d bytes from the system\n", 
+                MEMORY_SIZE);
         abort();
     }
 
     /*
      * Initializes the header and footer of our memory pool. This is an O(1)
      * operation given that we have the pointer to the beginning of our 
-     * memory pool.
-    */
-    *((int *) mem) = MEMORY_SIZE - HEADER - FOOTER;
-    *((int *) (mem + MEMORY_SIZE - FOOTER)) = MEMORY_SIZE - HEADER - FOOTER;
+     * memory pool. Note that our block sizes include the HEADER and FOOTER
+     * size as wel as the actual data size.
+     */
+    *((int *) mem) = MEMORY_SIZE;
+    *((int *) (mem + MEMORY_SIZE - FOOTER)) = MEMORY_SIZE;
 
 }
 
@@ -83,43 +85,45 @@ void init_myalloc(void) {
 unsigned char *myalloc(int size) {
 
     iterator = mem;
-    int remaining_space, shift_amount;
+    int remaining_space;
     unsigned char *return_ptr = NULL;
 
     /* 
      * This stores the size of the smallest free block seen which can fit 
      * our new chunk of memory. 
      */
-    int min_block_size = MEMORY_SIZE;
+    int min_block_size = INT_MAX;
 
     /* Linearly traverse all blocks to find "best fit". */
     while (iterator < (mem + MEMORY_SIZE)) {
         remaining_space = *((int *) iterator);
 
         /* Find the smallest free block that can fit the chunk of memory. */
-        if (remaining_space >= size && remaining_space < min_block_size) {
+        if (remaining_space > 0 && remaining_space >= (HEADER + FOOTER 
+            + size) && remaining_space < min_block_size) {
+
             min_block_size = remaining_space;
             return_ptr = iterator;
         }
-        /* This stores how many bytes to move over to get to next header. */
-        shift_amount = HEADER + abs(remaining_space) + FOOTER ;
 
-        /* This marks the location of next block's header. */
-        iterator += shift_amount;
+        /* This moves our iterator onto the next block header. */
+        iterator += abs(remaining_space);
     }
 
     /* If we have a valid block to add to, we add. Else we return 0. */
     if (return_ptr) {
         /* 
-         * Calculate amount of potential space if we were to split the block.
-         * The amount of space left over is equal to the total remaining space
-         * minus the size of first block to be inserted minus the amount of 
-         * space for the next header and footer. 
+         * Calculate amount of potential space for the actual data for the 
+         * second block if we were to split the block into two. The amount of 
+         * space left over is equal to the total remaining space minus the 
+         * size required for the first block (size of the first block's data
+         * + HEADER + FOOTER) minus the amount of space for the second block's
+         * header and footer.
          */
 
-        int space_for_second = min_block_size - size - HEADER - FOOTER;
-
-        /* 
+        int space_for_second = min_block_size - (size + HEADER + FOOTER) 
+            - HEADER - FOOTER;
+        /*  
          * If we do not have space for second block, we mark the current
          * block as full. Otherwise, we split. 
          */
@@ -127,24 +131,26 @@ unsigned char *myalloc(int size) {
         if (space_for_second <= 0) {
 
             /* Make remaining_space negative to denote it is now allocated. */
-            *((int *) iterator) = -remaining_space;
+            *((int *) iterator) = -min_block_size;
+            *((int *) (iterator + min_block_size - FOOTER)) = -min_block_size;
 
         } else {
 
             /* Change header of current block. */
-            *((int *) iterator) = -size;
+            *((int *) iterator) = -(size + HEADER + FOOTER);
 
             /* Change footer of current block. */
             iterator += (size + HEADER);
-            *((int *) iterator) = -size;
+            *((int *) iterator) = -(size + HEADER + FOOTER);
 
             /* Initialize header of second block. */
             iterator += FOOTER;
-            *((int *) iterator) = space_for_second;
+            *((int *) iterator) = space_for_second + HEADER + FOOTER;
 
             /* Initialize footer of second block. */
-            iterator += (space_for_second + HEADER);
-            *((int *) iterator) = space_for_second;
+            iterator += (HEADER + space_for_second);
+            *((int *) iterator) = space_for_second + HEADER + FOOTER;
+            
         }
 
         /* 
@@ -156,7 +162,7 @@ unsigned char *myalloc(int size) {
     } else {
         fprintf(stderr, "myalloc: cannot service request of size %d with"
                 " %lx bytes allocated\n", size, (iterator - mem));
-        return (unsigned char *) 0;
+        return NULL;
     }
 
     return return_ptr;
@@ -174,7 +180,7 @@ unsigned char *myalloc(int size) {
  * merge it with the current block. 
  */
 void myfree(unsigned char *oldptr) {
-
+    
     /* 
      * oldptr signifies where the data starts, so we need to backtrack to get 
      * the header. 
@@ -184,13 +190,14 @@ void myfree(unsigned char *oldptr) {
 
     /* 
      * If block was previously freed, meaning its header value is positive,
-     * then throw an error.
+     * then throw an error and exit.
      */ 
 
     int current_header = *((int *) iterator);
-    if (current_header > 0) {
-        fprintf(stderr, "myalloc: cannot free memory address "
-            "previously freed.\n");
+    if (current_header > 0) 
+    {
+        fprintf(stderr, "value: %d myalloc: cannot free memory address "
+            "previously freed.\n", current_header);
         exit(EXIT_FAILURE);
     }
 
@@ -207,7 +214,7 @@ void myfree(unsigned char *oldptr) {
      * that having the header allows us direct access to the adjacent right 
      * block, meaning coalescing to the right is an O(1) time operation.
      */
-    iterator += (HEADER + free_space + FOOTER);
+    iterator += free_space;
 
     /* Make sure we are not checking the right block of the last block. */
     if (iterator < (mem + MEMORY_SIZE)) {
@@ -218,7 +225,7 @@ void myfree(unsigned char *oldptr) {
          * merging blocks means one less header and footer.
          */
         if (right_block_space > 0) {
-            free_space += (right_block_space + HEADER + FOOTER);
+            free_space += right_block_space;
         }       
     }
     
@@ -242,7 +249,7 @@ void myfree(unsigned char *oldptr) {
      * This will store the size of the left block, so we can change the
      * left block's header if we end up coalescing to the left. 
      */
-    int left_block_space;
+    int left_block_space = 0;
 
     /* Make sure we are not checking the left block of the first block. */
     if (iterator > mem) {
@@ -254,20 +261,18 @@ void myfree(unsigned char *oldptr) {
          */
         if (left_block_space > 0) {
             is_left_free = 1;
-            free_space += (left_block_space + HEADER + FOOTER);
+            free_space += left_block_space;
         } 
     }
 
-    if (is_left_free) {
-        /* 
-         * Move iterator to start of header of left block. Before, iterator
-         * was at the footer of the left block.
-         */
-        iterator -= (left_block_space + HEADER);
+    if (is_left_free) {    
+
+        /* Move iterator to start of header of left block. */
+        iterator = oldptr - HEADER - left_block_space;
         *((int *) iterator) = free_space;
 
         /* Move iterator along to set the footer. */
-        iterator += (HEADER + free_space);
+        iterator += (free_space - FOOTER);
         *((int *) iterator) = free_space;
     }
     else {
@@ -281,8 +286,9 @@ void myfree(unsigned char *oldptr) {
         /* Change header of current block to be freed. */
         *((int *) (oldptr - HEADER)) = free_space;
 
-        /* Change footer. */
-        *((int *) (oldptr + free_space)) = free_space;
+        /* Change footer of current block to be freed. */
+        *((int *) (oldptr - HEADER + free_space - FOOTER)) = free_space;            
+
     }
 
     return;
@@ -290,9 +296,9 @@ void myfree(unsigned char *oldptr) {
 
 /*!
  * Clean up the allocator state.
- * All this really has to do is free the user memory pool. This function mostly
- * ensures that the test program doesn't leak memory, so it's easy to check
- * if the allocator does.
+ * All this really has to do is free the user memory pool. This function 
+ * mostly ensures that the test program doesn't leak memory, so it's easy to 
+ * check if the allocator does.
  */
 void close_myalloc(void) {
     free(mem);
@@ -312,7 +318,7 @@ void sanity_check(void) {
 
     while (iterator < (mem + MEMORY_SIZE)) {
         /* Look at header and get the block size. */
-        int block_size = abs(*((int *) iterator)) + HEADER + FOOTER;
+        int block_size = abs(*((int *) iterator));
         total_space += block_size;        
         num_blocks++;
 

@@ -1,7 +1,6 @@
 Bugs in rl_decode() function:
 -----------------------------
 
-
 Bug #1:
 When we are summing up the counts, we were using %bl (byte 8) of the %rbx
 register. However, because %bl is only one byte, this can certainly overflow.

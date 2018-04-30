@@ -1,0 +1,6 @@
+# %r8 stores address/pointer to Shape subclass 
+
+movq %r8, %rdi              # Move subclass address to %rdi
+movq (%rdi), %rsi           # Move getVolume address to %rsi
+call (%rsi)                 # Call getVolume function with address of subclass
+                            # stored as argument.

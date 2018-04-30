@@ -29,16 +29,16 @@ rl_decode:
         # We do this by summing up the counts, which are in the odd memory
         # locations.
 
-        mov     $0, %ecx                  # %ecx = loop variable (int)
-        mov     $0, %ebx                  # %ebx = size required (also int)
+        mov     $0, %ecx                   # %ecx = loop variable (int)
+        mov     $0, %ebx                   # %ebx = size required (also int)
 
         # Find-space while-loop starts here...
         cmp     %esi, %ecx
         jge     find_space_done
 
 find_space_loop:
-        mov     $0, %r8b                   # %r8b = temp. 1 byte 
-                                           # register to hold counts
+        mov     $0, %r8b                   # %r8b = temp. 1 byte register
+                                           # to hold counts
         add     (%rdi, %rcx), %r8b         # Add in the count
 
         movzx   %r8b, %r9d                 # Move our byte register w/ zero

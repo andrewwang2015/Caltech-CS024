@@ -48,7 +48,7 @@ can thus try to read from addresses not within our memory pool.
 3. myfree() on address that has already been freed?
 
 Currently, myfree() first checks to see the value of the header of the block
-to be freed, and throwing an exception if the value is positive
+to be freed, and throwing an exception and exiting if the value is positive
 (meaning it was previously freed). So, if myfree() was called on an address
 that was already freed, then an error would be thrown and the program would
 exit.
@@ -64,19 +64,14 @@ corresponding to starts of data) cannot lie in the first 4 bytes of our memory
 pool (reserved for header) and also cannot lie in the last 4 bytes of our 
 memory pool (reserved for footer). 
 
-A.2 can be resolved by a variety of methods. A simple, yet potentially 
-time consuming approach would be to iterate through our memory pool (much
-like we do in my sanity_check function) and looking at the locations where
-each block starts. If the input address is not among these address locations
-where proper blocks start,then we can throw an error because we will know that
-the input address was not contained within a memory block returned by 
-myalloc(). Additionally, a more time efficient way would be to simply store 
-a hashset of addresses that are valid block start locations and everytime we
-free, we check to see if the address is in this hashset. If it's not, then we
-know that it's not a valid location of a block start and can thus terminate
-and throw an error. We must be careful to update the hashset carefully 
-(being sure that we update the hashset correctly in the case of coalescing 
-because in that case, multiple blocks can get combined into one). 
+A.2 can be resolved by the following approach: iterate through our memory pool 
+(much like we do in my sanity_check function) and looking at the locations 
+where each block starts by iterating through all the headers; the headers
+define how big the block sizes are, so we can easily move from block to block
+to get locations where blocks actually start. If the input address is not 
+among these address locations where proper blocks start, then we can throw an 
+error and exit because we will know that the input address was not contained 
+within a memory block returned by myalloc(). 
 
 A.3 is already resolved in program and explained in part A.
 
