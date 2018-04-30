@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <string.h>
-
 #include "global.h"
 #include "eval.h"
 #include "alloc.h"

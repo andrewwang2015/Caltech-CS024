@@ -313,8 +313,7 @@ void memdump() {
 
 /*!
  * Changes the 'marked' int flag of specific value to MARKED. For DictValue
- * and ListValue, we also mark DictNode and ListNode, respectively. 
- *
+ * and ListValue, we go ahead and mark the current node and next nodes. 
  */
 void mark(Value *value) {
     if (!value) {
@@ -403,9 +402,10 @@ int collect_garbage(void) {
      * We will have two pointers that move along our memory pool. read_head
      * will iterate value to value and seeing if each value is marked.
      * 
-     * If it is marked, then 1) copy the value to the write_head. 2) Move 
-     * write_head and read_head by the total size of the value. 3) Update 
-     * the ref_table for the new address.
+     * If it is marked, then 1) Unmark it. 2) Copy the value to the 
+     * write_head. 3) Update the ref_table for the new address. 4) Move 
+     * write_head and read_head by the total size of the value. 
+     * 
      * 
      * If not marked, we 1) move read_head onto the next value. 2) Set its
      * reference to be NULL.
@@ -427,6 +427,10 @@ int collect_garbage(void) {
         Reference ref = curr_value->ref;
 
         if (curr_value->marked == MARKED){
+
+            /* Unmark for next time we garbage collect. */
+            curr_value->marked = UNMARKED;
+
             /* 
              * Use memmove because we can have scenarios where the destination
              * and source overlap. Using memcpy would give us problems in
@@ -434,9 +438,6 @@ int collect_garbage(void) {
              */
             memmove(write_head, read_head, value_size);
             ref_table[ref] = (Value *) write_head;
-
-            /* Unmark for next time we garbage collect. */
-            curr_value->marked = UNMARKED;
 
             /* Because data was copied, move both heads along. */
             read_head += value_size;
@@ -452,9 +453,11 @@ int collect_garbage(void) {
 
     fprintf(stdout, "Free  0x%08x; size %lu\n", (int) (freeptr - mem),
         MEMORY_SIZE - (freeptr - mem));
-
-    // Ths will report how many bytes we were able to free in this garbage
-    // collection pass. Data after write_head is considered "garbage."
+    /*
+     * Ths will report how many bytes we were able to free in this garbage
+     * collection pass. Data after write_head is considered "garbage."
+     */
+    
     reclaimed = (int) (freeptr - write_head);
     freeptr = write_head;
     printf("Reclaimed %d bytes of garbage.\n", reclaimed);

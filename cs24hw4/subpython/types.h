@@ -14,7 +14,7 @@ typedef int Reference;
 /*! This value is used to represent a "null" reference. */
 #define NULL_REF (-1)
 
-/* Values used for the "marked" flag. */
+/* Values used for the "marked" flag. 1 for yes. 0 for no.*/
 #define MARKED 1
 #define UNMARKED 0
 
