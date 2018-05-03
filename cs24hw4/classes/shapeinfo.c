@@ -14,7 +14,8 @@ void print_info(const char *type, Shape_Data *s) {
     volume = s->class->getVolume(s);
     mass = s->density * volume;
 
-    printf("Volume of %s:  %f\tMass of %s:  %f\n\n", type, volume, type, mass);
+    printf("Volume of %s:  %f\tMass of %s:  %f\n\n", type, 
+        volume, type, mass);
 }
 
 

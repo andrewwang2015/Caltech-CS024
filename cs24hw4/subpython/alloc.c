@@ -72,7 +72,7 @@ Reference make_reference();
 
 
 /*!
- * This function initializes both the allocator state, and the memory pool.  It
+ * This function initializes both the allocator state, and the memory pool. It
  * must be called before myalloc() or myfree() will work at all.
  *
  * Note that we allocate the entire memory pool using malloc().  This is so we
@@ -292,13 +292,15 @@ void memdump() {
                 fprintf(stdout,
                     "type = VAL_DICT_NODE; key_ref = %d; value_ref = %d; "
                     "next_ref = %d\n",
-                    dv->dict_node.key, dv->dict_node.value, dv->dict_node.next);
+                    dv->dict_node.key, dv->dict_node.value, 
+                    dv->dict_node.next);
                 break;
             }
 
             default:
                 fprintf(stdout,
-                        "type = UNKNOWN; the memory pool is probably corrupt\n");
+                        "type = UNKNOWN; the memory pool is probably "
+                        " corrupt\n");
         }
 
         curr += value_size;
@@ -337,11 +339,14 @@ void mark(Value *value) {
             nxt = lst_val->list_node.next;
 
             // Recursively mark value and next members. */
-            if (deref(val)) {
-                mark(deref(val));
+            Value *list_val = deref(val);
+            Value *list_nxt = deref(nxt);
+
+            if (list_val) {
+                mark(list_val);
             }
-            if (deref(nxt)) {
-                mark(deref(nxt));
+            if (list_nxt) {
+                mark(list_nxt);
             }
             break;
         
@@ -354,14 +359,19 @@ void mark(Value *value) {
             key = dct_val->dict_node.key;
             val = dct_val->dict_node.value;
             nxt = dct_val->dict_node.next;
-            if (deref(key)) {
-                mark(deref(key));
+
+            Value *dict_key = deref(key);
+            Value *dict_val = deref(val);
+            Value *dict_nxt = deref(nxt);
+
+            if (dict_key) {
+                mark(dict_key);
             }
-            if (deref(val)) {
-                mark(deref(val));
+            if (dict_val) {
+                mark(dict_val);
             }
-            if (deref(nxt)) {
-                mark(deref(nxt));
+            if (dict_nxt) {
+                mark(dict_nxt);
             }
             break;
         }
@@ -377,9 +387,20 @@ void mark(Value *value) {
  */
 void mark_globals(const char *name, Reference ref)
 {
-    fprintf(stdout, "MARKING %s = ref %d; value ", name, ref);
-    mark(deref(ref));
+    (void)(name);
+    Value *val = deref(ref);
+    if (val) {
+        mark(val);
+    }
+
+
 }
+
+/* 
+ * This function employs the "mark and sweep" method to garbage collect 
+ * the memory pool. We ensure that all non-garbage comes before the freeptr
+ * (at the beginning of memory pool) and that all garbage comes after freeptr.
+ */
 
 int collect_garbage(void) {
 
@@ -470,9 +491,9 @@ int collect_garbage(void) {
 
 /*!
  * Clean up the allocator state.
- * All this really has to do is free the user memory pool. This function mostly
- * ensures that the test program doesn't leak memory, so it's easy to check
- * if the allocator does.
+ * All this really has to do is free the user memory pool. This function 
+ * mostly ensures that the test program doesn't leak memory, so it's easy 
+ * to check if the allocator does.
  */
 void close_alloc(void) {
     free(mem);
