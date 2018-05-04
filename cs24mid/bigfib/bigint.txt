@@ -1,12 +1,110 @@
 ------------------------------------------------------------------------------
 1)  Pseudocode for __add_bigint
 
+# This function takes bigint arrays a and b and computes b += a. It returns
+# 1 if the addition is completed successfully (no unsigned overflow) or 0
+# if the addition results in an unsigned overflow.
+# %rdi: pointer to array a
+# %rsi: pointer to array b
+# %rdx/dl: size of array
+
+__add_bigint:
+    if (%dl == 0):
+        GOTO add_bigint_zero_size
+
+    clc                 # Clear the carry flag
+    %ecx = 0            # Variable used to move along input arrays a and b
+    while (%dl > 0):
+        %r8 = 0         # Temporary register because we cannot directly add
+                        # two memory references 
+
+        %r8 = a[%ecx]               # Move a[%ecx] into %r8
+        b[%ecx] += %r8              # Add %r8 to b[%ecx]
+        %ecx++
+        %dl--
+        if %dl == 0:
+            GOTO add_bigint_done
+
+# This function simply puts 1 into the return register and returns in the case
+# where the input size is 0.
+
+add_bigint_zero_size:  
+    %eax = 0
+    ret
+
+# This function handles the returning of 1 if the completed addition was 
+# successful and 0 if the completed addition resulted in an unsigned overflow.
+
+add_bigint_done:
+    %eax = 0
+    if OVERFLOW:
+        GOTO add_bigint_overflow                   # Jump if overflow
+    ret
+    
+# This puts a 1 in the return register indicating that we had an overflow
+# when we tried to perform addition.
+
+add_bigint_overflow:
+    %eax = 1
+    ret
+
+=============================================================================
+
+# This function takes bigint arrays a and b and computes b += a. It returns
+# 1 if the addition is completed successfully (no unsigned overflow) or 0
+# if the addition results in an unsigned overflow.
+# %rdi: pointer to array a
+# %rsi: pointer to array b
+# %rdx/dl: size of array
+
+__add_bigint:
+    cmp $0, $dl
+    JE add_bigint_zero_size         # If size of array is 0, JUMP
+
+    clc                 # Clear the carry flag
+    %ecx = 0            # Variable used to move along input arrays a and b
+
+# This is responsible for the looping over all indices of a and b
+add_bigint_loop:
+    %r8 = 0         # Temporary register because we cannot directly add
+                        # two memory references 
+
+    movq (%rdi, %ecx, 8), r8    # Move a[%ecx] into %r8
+    adc %r8, (%rsi, %ecx, 8)    # Add %r8 to b[%ecx]
+    inc ecx
+    dec dl
+    if (dl == 0):
+        GOTO add_bigint_done
+    GOTO add_bigint_loop
+
+# This function simply puts 1 into the return register and returns in the case
+# where the input size is 0.
+
+add_bigint_zero_size:  
+    %eax = 0
+    ret
+
+# This function handles the returning of 1 if the completed addition was 
+# successful and 0 if the completed addition resulted in an unsigned overflow.
+
+add_bigint_done:
+    %eax = 0
+    JO   add_bigint_overflow                   # Jump if overflow
+    ret
+
+# This puts a 1 in the return register indicating that we had an overflow
+# when we tried to perform addition.
+
+add_bigint_overflow:
+    %eax = 1
+    ret
 
 ------------------------------------------------------------------------------
 3)  Largest n for fib(n) using four 64-bit quadwords for bigint:
 
+370
 
 ------------------------------------------------------------------------------
 4)  Number of 64-bit quadwords required for fib(2000), and value of fib(2000):
 
-
+22 
