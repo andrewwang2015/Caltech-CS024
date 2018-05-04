@@ -1,0 +1,61 @@
+Explicit Allocator Scenario:  Allocation Fails under First-Fit but not Best-Fit
+===============================================================================
+
+Note: I will use positive numbers to denote free regions and negative numbers
+to denote allocated regions. For instance, if I write:
+
+-10, 30, -5, 50 
+
+This would mean I have 4 blocks: the first block is 10 kb and allocated,
+the second block is 30kb and free, the third block is -5 and allocated, and
+the fourth and final block is 50kb and free. In addition, all units will be in
+KB.
+
+-----------------------------------------------------------------------------
+
+Total heap size: 100 (kb)
+
+Steps: 
+1) Allocate block 1 of 25               
+2) Allocate block 2 of 30
+3) Allocate block 3 of 25
+4) Free block 2
+5) Allocate block 4 of 15
+6) Allocate block 5 of 22 
+
+From steps 1-4 inclusive, we have that the first-fit and best-fit behave 
+exactly the same (because until step 4, we only have a single free block
+so both policies will allocate blocks in consecutive fashion and with
+regards to step 4, we know that freeing acts independent of policy). So up 
+through step 4, we have the following configuration:
+
+-25, 30, -25, 20
+
+Now with steps 5 and 6, we have diverging behavior based on the policy. Let's
+start with first-fit. Step 5 wants us to allocate a block of 15 and seeing
+that block 2 (30 kb block) is the first valid block, we go ahead and allocate
+and split block 2, so now we have :
+
+-25, -15, 15, -25, 20
+
+With step 6, we try to allocate a block of 22 but it is obvious to see that
+we lack adequate free space so we have allocation failure under the first-fit
+policy. 
+
+Now, let's backtrack and see what would happen if we tried a best-fit
+policy. So recall, at the start of step 5, we had this configuration:
+
+-25, 30, -25, 20
+
+Now, under best-fit policy, when we do step 5 and allocate block 4 of 15,
+we will have:
+
+-25, 30, -25, -15, 5
+
+Now, when we try to allocate block 5 of size 22, we see that unlike the case
+with first-fit policy, we actually have space. So after step 6, we have:
+
+-25, -22, 8, -25, -15, 5.
+
+Thus, we have contrived a situation where first-fit policy will result in
+allocation failure while best-fit does not.

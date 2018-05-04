@@ -1,0 +1,71 @@
+Explicit Allocator Scenario:  Allocation Fails under Best-Fit but not First-Fit
+===============================================================================
+
+Note: I will use positive numbers to denote free regions and negative numbers
+to denote allocated regions. For instance, if I write:
+
+-10, 30, -5, 50 
+
+This would mean I have 4 blocks: the first block is 10 kb and allocated,
+the second block is 30kb and free, the third block is -5 and allocated, and
+the fourth and final block is 50kb and free. In addition, all units will be in
+KB.
+
+-----------------------------------------------------------------------------
+
+Total heap size: 100 (kb)
+
+Steps: 
+1) Allocate block 1 of 25               
+2) Allocate block 2 of 30
+3) Allocate block 3 of 25
+4) Free block 2
+5) Allocate block 4 of 10
+6) Allocate block 5 of 20
+7) Allocate block 6 of 15
+
+From steps 1-4 inclusive, we have that the first-fit and best-fit behave 
+exactly the same (because until step 4, we only have a single free block
+so both policies will allocate blocks in consecutive fashion and with
+regards to step 4, we know that freeing acts independent of policy). So up 
+through step 4, we have the following configuration:
+
+-25, 30, -25, 20
+
+Now, we will see that steps 5-7 will elicit different behavior based on which
+policy is used. Let's examine best-fit policy first. Step 5 tells us to 
+allocate a block of size 10. So with best-fit, we now have:
+
+-25, 30, -25, -10, 10
+
+Now step 6 tells us to allocate a block of size 20, so now we have:
+
+-25, -20, 10, -25, -10, 10
+
+Lastly, we attempt to perform step 7 and allocate a block of size 15 but
+we can easily see that we lack adequate space (both free blocks are of 
+size 10), and so under best-fit we have allocation failure.
+
+Now, let's backtrack and reexamine the situation using first-fit policy.
+Recall, that we have the following configuration at the start of step 5. 
+
+-25, 30, -25, 20
+
+Now step 5 tells us to allocate a block of size 10, so with first fit we
+have:
+
+-25, -10, 20, -25, 20
+
+Now step 6 tells us to allocate a block of size 20, so now we have:
+
+-25, -10, -20, -25, 20
+
+Lastly, step 7 tells us to allocate a block of size 15, but unlike the 
+best-fit policy case, we see that we can actually allocate because 
+we have a free block of size 20. So finally, we have the following 
+configuration:
+
+-25, -10, -20, -25, -15, 5
+
+Hence, we have created a simple scenario where best-fit policy will result
+in allocation failure while first-fit does not.
