@@ -17,6 +17,12 @@
  */
 #define NUM_REGISTERS (1 << REGISTER_BITS)
 
+/**** BRANCHING_DECODE CONSTANTS ****/
+
+#define OP_SHIFT 4 
+#define REGISTER_MASK 0x07 
+#define BRANCHING_MASK 0x0F
+#define ISREG_MASK 0x08 
 
 /**** CPU OPCODES ****/
 

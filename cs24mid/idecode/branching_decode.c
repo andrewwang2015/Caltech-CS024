@@ -86,10 +86,98 @@ void fetch_and_decode(InstructionStore *is, Decode *d, ProgramCounter *pc) {
     ifetch(is);   /* Cause InstructionStore to push out the instruction byte */
     instr_byte = pin_read(d->input);
 
-    /*=====================================================*/
-    /* TODO:  Fill in the implementation of the multi-byte */
-    /*        instruction decoder.                         */
-    /*=====================================================*/
+    /* 
+     * First, get the opcode by logically shifting 4 bytes to the right. 
+     * Because we know that instr_byte is unsigned, we are guaranteed that
+     * after this shift, the top 4 bits will be zeroed out. 
+     */
+    operation = instr_byte >> OP_SHIFT;
+
+    /* 
+     * Now, switch on the op_code to determine what operation we need to do.
+     * This will also give us insight on how many control instructions the 
+     * op_code takes.
+     */
+
+    switch (operation) {
+        /* If op_code is DONE, then we know we can break out. */
+        case OP_DONE:
+            break;
+
+        /*
+         * One argument instructions always occupy 1 byte. 
+         * The encoding is [op3 op2 op1 op9 x src2 src1 src0].
+         *      [op3 ... op0] are the bits of the opcode. 
+         *      [src2 ... src0] are the bits of the register argument.
+         */
+        case OP_INC:
+        case OP_DEC:
+        case OP_INV:
+        case OP_SHL:
+        case OP_SHR:
+            /* 
+             * To get [src2 ... src0], let's do a bitwise and with 0x07. 
+             * Also, we know that the destination and source are the same. 
+             */
+            src1_addr = src2_addr = dst_addr = instr_byte & REGISTER_MASK;
+
+            /* Write to destination register. */
+            dst_write = WRITE_REG;
+            break;
+
+        /* 
+         * Two argument instructions always occupy 2 bytes. 
+         * Byte 1 encoding: [op3 op2 op1 op9 a_isreg regb2 regb1 regb0]
+         *      [regb2 ... regb0] are bits of second register argument
+         * Byte 2 encoding: 
+         *      when a_isreg == 1: [x x x x x rega2 rega1 rega0]
+         *          [rega2 ... rega0] are bits of first register argument
+         *      when a_isreg == 0: [8-bit constant]
+         */
+        case OP_MOV:
+        case OP_ADD:
+        case OP_SUB:
+        case OP_AND:
+        case OP_OR:
+        case OP_XOR:
+            /* 
+             * Decode the first byte. The destination is equal to the 
+             * second source. 
+             */
+            dst_addr = src2_addr = instr_byte & REGISTER_MASK;
+            src1_isreg = (instr_byte & ISREG_MASK);
+
+            /* Fetch and decode the second byte. */
+            incrPC(pc);
+            ifetch(is);
+            instr_byte = pin_read(d->input);
+
+            if (src1_isreg) {
+                /* If register, get bits of first register. */
+                src1_addr = instr_byte & REGISTER_MASK;
+            } else {
+                src1_const = instr_byte;
+            }
+            /* Write to destination. */
+            dst_write = WRITE_REG;
+            break;
+
+        /*
+         * Branching instructions always occupy 1 byte. 
+         * Encoding: [op3 op2 op1 op0 addr addr2 addr1 addr0]
+         *      [op3 ... op0] are the bits of the opcode.
+         *      [addr3 ... addr0] are bits of the address to branch to.
+         */
+        case OP_BRA:
+        case OP_BRZ:
+        case OP_BNZ:
+            branch_addr = instr_byte & BRANCHING_MASK;
+            break;
+
+        default:
+            fprintf(stderr, "Invalid opcode %d. \n", operation);
+            break;
+    }
 
     /* All decoded!  Write out the decoded values. */
 

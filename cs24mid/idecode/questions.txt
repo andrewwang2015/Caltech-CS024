@@ -3,8 +3,21 @@ Instruction Decoding:  Questions
 
 1)  Offsets of MUL_LOOP, SKIP_ADD, MUL_DONE
 
+MUL_LOOP = 3
+SIP_ADD = 7
+MUL_DONE = 10
 
 2)  Assembly instructions and encoded bit-patterns
 
+R5 := R5 - 6
+Sub 6, R5
 
+10100101 0000110
+
+----------------------
+
+R4 := R4 ^ R1
+XOR R1, R4
+
+11101100 xxxxx001
 
