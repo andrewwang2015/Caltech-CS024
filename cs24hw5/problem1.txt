@@ -1,0 +1,43 @@
+a.
+
+3 GHz = 3 * 10^9 cycles/second 
+Let's call our miss rate x. Per data value, the expected latency is 
+100x + (1-x) = (99x + 1) cycles.
+
+Now, we have that per second, we have 750M instructions which means 750M
+data values to retrieve. 
+
+Multiplying each data value by the expected latency for that data value
+and equating that with the number of cycles the processor can run per
+second, we get:
+
+750,000,000 instructions/second * (99x + 1) cycles/instruction = 
+                                                    3 * 10^9 cycles/second
+
+Solving for x, our miss rate, we get:
+
+(99x + 1) cycles/instruction = 4 cycles/instruction
+
+99x = 3
+
+x = miss rate = 1/33
+
+b. 
+
+Doubling the performance would mean we want 1,500,000,000 instructions
+per second. 
+
+Doing the same calculation as above:
+
+1,500,000,000 instructions/second * (99x + 1) cycles/instruction = 
+                                                    3 * 10^9 cycles/second
+
+Solving for x, our miss rate, we get:
+
+(99x + 1) cycles/instruction = 2 cycles/instruction
+
+99x = 1
+
+x = miss rate = 1/99
+
+We would have to reduce the miss rate by one-third. 

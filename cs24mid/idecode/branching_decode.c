@@ -116,7 +116,7 @@ void fetch_and_decode(InstructionStore *is, Decode *d, ProgramCounter *pc) {
         case OP_SHL:
         case OP_SHR:
             /* 
-             * To get [src2 ... src0], let's do a bitwise and with 0x07. 
+             * To get [src2 ... src0], let's do a bitwise AND with 0x07. 
              * Also, we know that the destination and source are the same. 
              */
             src1_addr = src2_addr = dst_addr = instr_byte & REGISTER_MASK;
@@ -171,6 +171,7 @@ void fetch_and_decode(InstructionStore *is, Decode *d, ProgramCounter *pc) {
         case OP_BRA:
         case OP_BRZ:
         case OP_BNZ:
+            /* Bitwise AND with 0x0F to get the 4 lower bits (address). */
             branch_addr = instr_byte & BRANCHING_MASK;
             break;
 

@@ -1,0 +1,27 @@
+d. (Direct-mapped cache)
+
+B = 32
+S = 8192/32 = 256
+E = 1 
+
+./heaptest 32:256:1
+miss-rate = 2.40%
+
+e. (Fully associative cache)
+
+B = 32
+S = 1
+E = 8192/32 = 256
+
+./heaptest 32:1:256
+miss-rate = 2.45%
+
+g. (LRU Policy)
+
+Direct-mapped cache:
+./heaptest 32:256:1
+miss-rate = 2.40%
+
+Fully associative cache:
+./heaptest 32:1:256
+miss-rate = 2.26%
