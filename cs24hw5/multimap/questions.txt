@@ -1,20 +1,107 @@
 Multimap Caching Performance
 ============================
 
-a)  Size of hardware cache lines:
+a)  Size of hardware cache lines: 64 bytes
 
 
 
 b)  Output of mmperf:
 
+Testing multimap performance:  300000 pairs, 1000000 probes, random keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 1000000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+997144 out of 1000000 test-pairs were in the map (99.7%)
+Total wall-clock time:  37.84 seconds       μs per probe:  37.838 μs
+
+Testing multimap performance:  300000 pairs, 1000000 probes, incrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing multimap 1000000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+997715 out of 1000000 test-pairs were in the map (99.8%)
+Total wall-clock time:  70.91 seconds       μs per probe:  70.915 μs
+
+Testing multimap performance:  300000 pairs, 1000000 probes, decrementing keys.
+Adding 300000 randomly generated pairs to multimap.
+Keys in range [0, 50), values in range [0, 1000).
+Probing mu
+ltimap 1000000 times with randomly generated test-pairs.
+Keys in range [0, 50), values in range [0, 1000).
+997325 out of 1000000 test-pairs were in the map (99.7%)
+Total wall-clock time:  70.78 seconds       μs per probe:  70.785 μs
+
+Testing multimap performance:  15000000 pairs, 1000000 probes, random keys.
+Adding 15000000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 1000000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+949586 out of 1000000 test-pairs were in the map (95.0%)
+Total wall-clock time:  9.25 seconds        μs per probe:  9.245 μs
+
+Testing multimap performance:  100000 pairs, 50000 probes, incrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 50000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+976 out of 50000 test-pairs were in the map (2.0%)
+Total wall-clock time:  201.03 seconds      μs per probe:  4020.651 μs
+
+Testing multimap performance:  100000 pairs, 50000 probes, decrementing keys.
+Adding 100000 randomly generated pairs to multimap.
+Keys in range [0, 100000), values in range [0, 50).
+Probing multimap 50000 times with randomly generated test-pairs.
+Keys in range [0, 100000), values in range [0, 50).
+980 out of 50000 test-pairs were in the map (2.0%)
+Total wall-clock time:  195.66 seconds      μs per probe:  3913.252 μs
+
 
 
 c)  Explanation of tests:
+We notice that the first three tests probe for data in a small range of keys,
+but a larger range of values. Because we are adding many key-value pairs
+into our map, we will have keys that have a rather long list of values 
+associated with it. Thus, finding the actual node in the map will not take
+too long because we are limiting our range of keys, but because the node 
+will likely have many associated values, we spend a lot more time traversing
+the linked list for the specific value. In summary, these tests focus on 
+search time of values.
 
+In the second three tests, we have the reverse: a large range of keys, but a 
+smaller range of values. Hence, we have many nodes (corresponding to the
+keys), but for each node, we may only have a few associated values. In these
+cases, we spend a lot more time finding the specific node as opposed to
+searching through its list of values. In summary, these tests focus on the
+search time of keys. 
 
 
 e)  Explanation of your optimizations:
 
+The first optimization I performed was changing the representation of values.
+Previously, the values for a specific key were stored as a linked list. 
+However, nodes of a linked list may not be contiguous in memory which means
+when we traverse these linked lists searching for a value, we are hopping
+from some memory locations to others that are not so close to one another and
+then having to put them in cache (not a high chance that connected nodes are
+in the cache together). Thus, we have extremely poor spatial locality. 
+To mitigate this, I converted the linked list representation of values to 
+arrays. Because arrays are contiguous in memory, when we traverse these 
+values, we have great spatial locality, meaning we can hop from value to value 
+very quickly, making use of the cache more. To actually implement this 
+optimization, I change the values attribute of multimap_node to be an integer 
+array and add two more additional integer attributes for size of array and the 
+index location where the next value should be placed. Doing such also allows 
+us to remove the useof multimap_value and values_tail which saves us 
+additional space which also helps in performance. The only caveat with using 
+an array is the need for reallocation when we run out of space. To do this, 
+I made a helper function called resize_array which handles the doubling of the 
+amount of space in a values array in the event we need to do so. In summary, 
+changing the representation of the values from linked lists to arrays allows 
+us to access contiguous memory, which is likely cached, as opposed to having 
+to load memory from many different locations into the cache. 
+
+The second optimization is 
 
 
 f)  Output of ommperf:

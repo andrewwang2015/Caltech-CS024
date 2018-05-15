@@ -4,7 +4,7 @@ CC=gcc
 CFLAGS = -Wall -DNDEBUG -O2
 
 # For debugging:
-# CFLAGS = -Wall -g -O0 -DDEBUG_ZERO
+CFLAGS = -Wall -g -O0 -DDEBUG_ZERO
 
 
 all:  mmtest mmperf
@@ -16,7 +16,7 @@ mmtest: mmtest.o mm_impl.o
 mmperf: mmperf.o mm_impl.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
-ommtest: mmtest.o opt_mm_impl.o
+ommtest: mmtest.o opt_mm_impl_v1.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 ommperf: mmperf.o opt_mm_impl.o
