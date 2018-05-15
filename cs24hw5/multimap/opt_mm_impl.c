@@ -68,17 +68,71 @@ int * resize_array(int *values_arr, int new_size);
 
 void free_multimap_node(multimap_node *node);
 
+void alloc_slabs(void);
 
+void resize_slabs(void);
+
+/* Global variables for slab allocation. */
+
+/* Array of slabs where each slab is an array of multimap_node structs. */
+multimap_node **slabs = NULL;
+unsigned int num_slabs;
+unsigned int max_num_slabs;
+
+/* 
+ * These variables track the current state of each slab. We let each slab 
+ * contain up to 10000 multimap_nodes. num_nodes_in_slab corresponds to
+ * how many multimap_nodes are in the slab, so we know when to reallocate
+ * once num_nodes_in_slab == max_nodes_in_slab.
+ */
+
+const unsigned int max_nodes_in_slab = 10000;
+unsigned int num_nodes_in_slab;
 /*============================================================================
  * FUNCTION IMPLEMENTATIONS
  *============================================================================*/
 
+/* 
+ * Allocates the initial memory pool of slabs. Initially, there is only room
+ * for one slab.
+ */
+void alloc_slabs() {
+    slabs = malloc(sizeof(multimap_node *));
+    slabs[0] = malloc(max_nodes_in_slab * sizeof(multimap_node));
+    max_num_slabs = 1;
+    num_slabs = 1;
+    num_nodes_in_slab = 0;
+}
+
+/* 
+ * Uses realloc to double the amount of slabs the slabs array can hold. 
+ */
+void resize_slabs(void) {
+    slabs = realloc(slabs, 2 * max_num_slabs * sizeof(multimap_node *));
+    max_num_slabs *= 2;
+}
+
 /* Allocates a multimap node, and zeros out its contents so that we know what
  * the initial value of everything will be.
  */
-multimap_node * alloc_mm_node() {
-    multimap_node *node = malloc(sizeof(multimap_node));
+multimap_node * alloc_mm_node(void) {
+    /* Check to see if we need to move on over to a new slab. */
+    if (num_nodes_in_slab == max_nodes_in_slab) {
+        /* Check to see if we need to resize our slabs array. */
+        if (max_num_slabs == num_slabs) {
+            resize_slabs();
+        }
+        /* Allocate a new slab. */
+        slabs[num_slabs] = malloc(max_nodes_in_slab * sizeof(multimap_node));
+        num_nodes_in_slab = 0;
+        num_slabs++;
+    }
+
+    /* Allocate node into slab. */
+    multimap_node *node = slabs[num_slabs - 1] + num_nodes_in_slab;
+    num_nodes_in_slab++;
     bzero(node, sizeof(multimap_node));
+
     /* Initialize the values array to be of size 1 upon creation. */
     node->values = (int *) malloc(sizeof(int));
     node->size = 1;
@@ -156,12 +210,13 @@ void free_multimap_node(multimap_node *node) {
 
     /* Free the array of values. */
     free(node->values);
+    
 
 #ifdef DEBUG_ZERO
     /* Clear out what we are about to free, to expose issues quickly. */
     bzero(node, sizeof(multimap_node));
 #endif
-    free(node);
+
 }
 
 
@@ -169,6 +224,7 @@ void free_multimap_node(multimap_node *node) {
 multimap * init_multimap() {
     multimap *mm = malloc(sizeof(multimap));
     mm->root = NULL;
+    alloc_slabs();
     return mm;
 }
 
@@ -180,6 +236,19 @@ void clear_multimap(multimap *mm) {
     assert(mm != NULL);
     free_multimap_node(mm->root);
     mm->root = NULL;
+
+    /* Free each slab. Implicitly frees each multimap_node. */
+    for (unsigned int i = 0; i < num_slabs; i++) {
+        free(slabs[i]);
+    }
+
+    /* Reset global variables. */
+    free(slabs);
+    slabs = NULL;
+    num_slabs = 0;
+    max_num_slabs = 0;
+    num_nodes_in_slab = 0;
+    free(mm);
 }
 
 
@@ -223,7 +292,7 @@ void mm_add_value(multimap *mm, int key, int value) {
  */
 
 int * resize_array(int *values_arr, int new_size) {
-    int *new_values_arr = (int *)realloc(values_arr, sizeof(int) * new_size);
+    int *new_values_arr = realloc(values_arr, sizeof(int) * new_size);
     return new_values_arr;
 }
 
