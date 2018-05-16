@@ -290,7 +290,7 @@ cacheline_t *resolve_cache_access(cache_t *p_cache, addr_t address) {
  */
 addr_t get_offset_in_block(cache_t *p_cache, addr_t address) {
     /* 
-     * Our bitmask will be 2^b-1, essentially so that the bottom 5 bits
+     * Our bitmask will be 2^b-1, essentially so that the bottom b bits
      * of our mask will be 1, so we can isolate the block offset (b is 
      * block_size). 
      */
@@ -347,7 +347,7 @@ addr_t get_block_start_from_address(cache_t *p_cache, addr_t address) {
      * and then shift left to set them to 0.
      */
 
-    addr_t res = (address >> p_cache ->block_offset_bits) << 
+    addr_t res = (address >> p_cache->block_offset_bits) << 
         p_cache->block_offset_bits;
     return res;
 }
@@ -367,10 +367,10 @@ addr_t get_block_start_from_line_info(cache_t *p_cache,
     res <<= p_cache->sets_addr_bits;
 
     /* 
-     * We can simply add the set_no because with the previous left shift,
-     * the bottom bits for the set_no are all zero. 
+     * We can simply OR with the set_no because with the previous left shift,
+     * the bottom bits of res are all zero. 
      */
-    res += set_no;
+    res |= set_no;
 
     /* Left shift to set the block_offset bits to 0. */
     res <<= p_cache->block_offset_bits;
