@@ -86,7 +86,7 @@ unsigned int max_num_slabs;
  * once num_nodes_in_slab == max_nodes_in_slab.
  */
 
-const unsigned int max_nodes_in_slab = 10000;
+static const unsigned int max_nodes_in_slab = 10000;
 unsigned int num_nodes_in_slab;
 /*============================================================================
  * FUNCTION IMPLEMENTATIONS
@@ -248,7 +248,6 @@ void clear_multimap(multimap *mm) {
     num_slabs = 0;
     max_num_slabs = 0;
     num_nodes_in_slab = 0;
-    free(mm);
 }
 
 

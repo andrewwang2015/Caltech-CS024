@@ -122,7 +122,7 @@ unsigned char cache_read_byte(membase_t *mb, addr_t address) {
     block_offset = get_offset_in_block(p_cache, address);
 
     /* Update "most recent access time." */
-    p_line -> time = clock_tick();
+    p_line->time = clock_tick();
 
 #if DEBUG_CACHE
     printf(" * Block offset within cache line:  %u\n", block_offset);
@@ -141,7 +141,7 @@ void cache_write_byte(membase_t *mb, addr_t address, unsigned char value) {
     addr_t block_offset = get_offset_in_block(p_cache, address);
     
     /* Update "most recent access time." */
-    p_line -> time = clock_tick();
+    p_line->time = clock_tick();
 
     /* Write the byte specified by the requester. */
     p_cache->num_writes++;

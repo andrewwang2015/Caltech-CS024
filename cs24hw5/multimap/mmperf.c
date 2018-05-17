@@ -163,6 +163,7 @@ void test_multimap_perf(int num_pairs, int num_probes, int keygen_mode,
 
     /* Free it!  We're done. */
     clear_multimap(mm);
+    free(mm);
 }
 
 
