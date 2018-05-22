@@ -81,12 +81,12 @@ unsigned int max_num_slabs;
 
 /* 
  * These variables track the current state of each slab. We let each slab 
- * contain up to 10000 multimap_nodes. num_nodes_in_slab corresponds to
+ * contain up to 1000000 multimap_nodes. num_nodes_in_slab corresponds to
  * how many multimap_nodes are in the slab, so we know when to reallocate
  * once num_nodes_in_slab == max_nodes_in_slab.
  */
 
-static const unsigned int max_nodes_in_slab = 10000;
+static const unsigned int max_nodes_in_slab = 1000000;
 unsigned int num_nodes_in_slab;
 /*============================================================================
  * FUNCTION IMPLEMENTATIONS
@@ -108,8 +108,8 @@ void alloc_slabs() {
  * Uses realloc to double the amount of slabs the slabs array can hold. 
  */
 void resize_slabs(void) {
-    slabs = realloc(slabs, 2 * max_num_slabs * sizeof(multimap_node *));
     max_num_slabs *= 2;
+    slabs = realloc(slabs, max_num_slabs * sizeof(multimap_node *));
 }
 
 /* Allocates a multimap node, and zeros out its contents so that we know what
@@ -274,8 +274,8 @@ void mm_add_value(multimap *mm, int key, int value) {
      * we simply double the size. 
      */
     if (last_index == curr_size) {
-        node->values = resize_array(node->values, curr_size * 2);
-        node->size = curr_size * 2;
+        node->size *= 2;
+        node->values = resize_array(node->values, node->size);
     }
 
     /* Add in the value to the array. */
