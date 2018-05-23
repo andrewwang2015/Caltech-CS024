@@ -28,7 +28,7 @@ scheduler_context:      .quad   0
 __sthread_switch:
 
         # Save the process state onto its stack
-        # Push all general-ppurpose registers rax...r15 (except rsp) first
+        # Push all general-purpose registers rax...r15 (except rsp) first
         pushq   %rax
         pushq   %rcx 
         pushq   %rdx 
@@ -104,8 +104,15 @@ __sthread_initialize_context:
         # Save stack pointer 
         movq    %rsp, %r10
 
-        # Set passed in stack pointer to be stack pointer 
-        movq    %rdi, %rsp 
+        # So we know we have 15 registers, return address, and a function 
+        # (17 total 8 byte values) that needs to go on the stack. Thus, 
+        # because the input pointer in %rdi is pointing to the end/bottom of 
+        # the stack, we need to move it upwards 17 * 8 = 0x88 to make room
+        # for everything that needs to be pushed on. 
+        subq    $0x88, %rdi
+
+        # Move %rdi to $rsp, the stackpointer where we want to start pushing
+        movq    %rdi, %rsp
 
         # Push return address 
         pushq   $__sthread_finish 

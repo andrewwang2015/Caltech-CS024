@@ -128,9 +128,15 @@ static void enqueue_thread(Thread *threadp) {
  * This function is global because it needs to be called from the assembly.
  */
 ThreadContext *__sthread_scheduler(ThreadContext *context) {
-    if (!context) {
-        /* Return NULL when no "current thread" running yet. */
-        return NULL;
+    if (context == NULL) {
+        /* 
+         * When there is no "current thread" running yet, we have to take
+         * from the ready queue and start things off. This will happen when
+         * the scheduler is first called.
+         */
+        current = queue_take(&ready_queue);
+        current->state = ThreadRunning;
+        return current->context;
     }
     /* Save the context argument into current thread. */
     current->context = context;
@@ -171,14 +177,14 @@ ThreadContext *__sthread_scheduler(ThreadContext *context) {
     } else {
         if (queue_empty(&blocked_queue)) {
             /* If no ready and no blocked threads, then finish. */
-            printf("All threads in program have completed successfully");
+            printf("All threads in program have completed successfully.");
             exit(0);
         } else {
             /* 
              * If no ready threads, but there are blocked threads, then 
              * exit with "error" status. 
              */
-            printf ("Blocked threads in queue. Program has deadlocked.");
+            printf("Blocked threads in queue. Program has deadlocked.");
             exit(1);
         }
     }
