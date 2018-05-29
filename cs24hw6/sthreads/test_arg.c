@@ -41,7 +41,9 @@ static void decrement(void *arg) {
 
 /*
  * Main function that creates two threads and makes sure they have access
- * to the arguments passed into them.
+ * to the arguments passed into them. The desired behavior is to alternate 
+ * these two threads of incrementing and decrementing, so we should see
+ * alternating 0s and 1s.
  */
 int main(int argc, char **argv) {
     int arg = 0;

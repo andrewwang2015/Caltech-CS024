@@ -104,13 +104,13 @@ __sthread_initialize_context:
         # Save stack pointer 
         movq    %rsp, %r10
 
-        # Move %rdi to %rsp, the stackpointer where we want to start pushing
+        # Set the stackpointer to be the argument (end of stack)
         movq    %rdi, %rsp
 
-        # Push return address for f after f returns
+        # Push return address 
         pushq   $__sthread_finish 
 
-        # Push function (f) to start 
+        # Push function to start 
         pushq   %rsi 
 
         # Make space for thread register state on stack

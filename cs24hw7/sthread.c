@@ -8,6 +8,8 @@
 
 #include "sthread.h"
 #include "queue.h"
+#include "timer.h"
+#include "glue.h"
 
 
 /*! The default stack size of threads, 1MiB of stack space. */
@@ -100,8 +102,7 @@ static void enqueue_thread(Thread *threadp) {
         queue_append(&blocked_queue, threadp);
         break;
     default:
-        fprintf(stderr, "Thread state has been corrupted: %d\n",
-                threadp->state);
+        fprintf(stderr, "Thread state has been corrupted: %d\n", threadp->state);
         exit(1);
     }
 }
@@ -128,66 +129,60 @@ static void enqueue_thread(Thread *threadp) {
  * This function is global because it needs to be called from the assembly.
  */
 ThreadContext *__sthread_scheduler(ThreadContext *context) {
-    if (context == NULL) {
-        /* 
-         * When there is no "current thread" running yet, we have to take
-         * from the ready queue and start things off. This will happen when
-         * the scheduler is first called.
+    /* 
+     * Upon entering the scheduler, lock system so that internal scheduler
+     * state does not get completely mangled.
+     */ 
+    __sthread_lock();
+
+    if (context != NULL) {
+        /* Add the current thread to the ready queue */
+        assert(current != NULL);
+
+        /* The thread could be Running, Blocked or Finished.
+         * If Running, we must switch it back to Ready.
          */
-        current = queue_take(&ready_queue);
-        current->state = ThreadRunning;
-        return current->context;
-    }
-    /* Save the context argument into current thread. */
-    current->context = context;
-    switch (current->state) {
-        /* Enqueue blocked and running threads. */
-        case ThreadRunning: 
-            /* If running, change thread's state to ready. */
+        if (current->state == ThreadRunning)
             current->state = ThreadReady;
-            /* Fall through. */
 
-        case ThreadBlocked:
+        /* If Running or Blocked, we just store the thread context and
+         * re-queue the thread.  If Finished, then we need to deallocate
+         * the thread's memory, because it is done.
+         */
+        if (current->state != ThreadFinished) {
+            current->context = context;
             enqueue_thread(current);
-            break;
-
-        case ThreadFinished:
-            /* Delete threads that are done. */
+        }
+        else {
             __sthread_delete(current);
-            break;
-
-        case ThreadReady:
-            fprintf(stderr, "Scheduler called on thread in the ready state.");
-            /* Fall through. */
-
-        default:
-            assert(0);
-            break;
+        }
     }
 
-    /* Select next thread from the ready queue for execution. */
-    Thread *next_thread = queue_take(&ready_queue);
-    if (next_thread) {
-        /* 
-         * If there exists a next ready thread, update current thread to be 
-         * this thread and set its state to running.
-         */
-        current = next_thread;
-        current->state = ThreadRunning;
-    } else {
+    /* Choose a new thread from the ready queue.  If there are no more
+     * Ready threads, the system is either deadlocked, or we are finished
+     * running and the program can be terminated.
+     */
+    current = queue_take(&ready_queue);
+    if (current == NULL) {
         if (queue_empty(&blocked_queue)) {
-            /* If no ready and no blocked threads, then finish. */
-            printf("All threads in program have completed successfully.\n");
+            fprintf(stderr, "All threads completed, exiting.\n");
             exit(0);
-        } else {
-            /* 
-             * If no ready threads, but there are blocked threads, then 
-             * exit with "error" status. 
-             */
-            printf("Blocked threads in queue. Program has deadlocked.\n");
+        }
+        else {
+            fprintf(stderr, "The system is deadlocked!\n");
             exit(1);
         }
     }
+
+    current->state = ThreadRunning;
+
+    /* 
+     * Upon exiting the scheduler, release the lock because now, we are 
+     * allowed to interrupt. 
+     */ 
+    __sthread_unlock();
+
+    /* Return the next thread to resume executing. */
     return current->context;
 }
 
@@ -199,8 +194,10 @@ ThreadContext *__sthread_scheduler(ThreadContext *context) {
 /*
  * Start the scheduler.
  */
-void sthread_start(void)
-{
+void sthread_start(int timer) {
+    if (timer)
+        start_timer();
+
     __sthread_start();
 }
 
@@ -211,30 +208,40 @@ void sthread_start(void)
  * structure, and it adds the thread to the Ready queue.
  */
 Thread * sthread_create(void (*f)(void *arg), void *arg) {
-    /* Heap- allocate a stack for new thread. */
-    void *stack = malloc(DEFAULT_STACKSIZE);
-    if (!stack) {
-        fprintf(stderr, "Heap allocation of stack for new thread failed.");
+    Thread *threadp;
+    void *memory;
+
+    /* Create a stack for use by the thread */
+    memory = (void *) malloc(DEFAULT_STACKSIZE);
+    if (memory == NULL) {
+        fprintf(stderr, "Can't allocate a stack for the new thread\n");
         exit(1);
     }
 
-    /* Heap-allocate new thread and set state, memory, and context members. */
-    Thread *new_thread = malloc(sizeof(Thread));
-    if (!new_thread) {
-        fprintf(stderr, "Heap allocation of new thread failed.");
-        exit(1); 
+    /* Create a thread struct */
+    threadp = (Thread *) malloc(sizeof(Thread));
+    if (threadp == NULL) {
+        fprintf(stderr, "Can't allocate a thread context\n");
+        free(memory);
+        exit(1);
     }
-    new_thread->state = ThreadReady;
-    new_thread->memory = stack;
 
-    /* Get top of stack. Note that the stack grows downwards. */
-    void *top_of_stack = (void *)((char *) stack + DEFAULT_STACKSIZE);
-    new_thread->context = __sthread_initialize_context(top_of_stack, f, arg);
+    /* Initialize the thread */
+    threadp->state = ThreadReady;
+    threadp->memory = memory;
+    threadp->context = __sthread_initialize_context(
+        (char *) memory + DEFAULT_STACKSIZE, f, arg);
+    enqueue_thread(threadp);
 
-    /* Place thread on ready queue. */
-    enqueue_thread(new_thread);
+    return threadp;
+}
 
-    return new_thread;
+
+/*
+ * Return the pointer to the currently running thread.
+ */
+Thread * sthread_current(void) {
+    return current;
 }
 
 
@@ -259,9 +266,9 @@ void __sthread_finish(void) {
  * context, as well as the memory for the Thread struct.
  */
 void __sthread_delete(Thread *threadp) {
-    /* Free memory used by thread's context. */
+    assert(threadp != NULL);
+
     free(threadp->memory);
-    /* Free thread struct itself. */
     free(threadp);
 }
 

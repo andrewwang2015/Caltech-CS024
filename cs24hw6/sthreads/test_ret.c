@@ -24,7 +24,9 @@ static void loop(void * arg) {
 
 /*
  * Main function that creates four threads and starts execution of these 
- * threads that run for different lengths of time.
+ * threads that run for different lengths of time. The desired behavior is 
+ * to see the threads of smaller lengths finish before those of larger
+ * lengths.
  */
 int main(int argc, char **argv) {
     int length1 = 3;

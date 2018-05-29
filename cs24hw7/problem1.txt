@@ -1,0 +1,14 @@
+We see from running fibtest that all the outputs are from producer 0 which is
+clearly unfair because otherwise, we would see outputs from both producer 0
+and producer 1. The problem stems from how yielding works. Notice that 
+producers continuously yields when the bounded buffer is full because it 
+is essentially waiting for space to open up so that they can append to it. 
+However, in this case, this causes a problem. Producer 0 is the first thread
+to start so producer 0 will keep adding values to the buffer until it gets
+full. At this point, it will yield to producer 1, but because the buffer
+is still full when producer 1 gets hold of it, it will yield to the consumer
+which will take from the buffer array and print these producer 0 fib 
+values until it is empty. Once it is empty, the consumer thread will yield
+and producer 0 will take over and we are back where we started. Because this
+cycle keeps on happening, we see that all of our output is only from 
+producer 0, and hence cooperative thread execution is not fair. 
