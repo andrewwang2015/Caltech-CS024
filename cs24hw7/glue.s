@@ -21,14 +21,19 @@ scheduler_lock:         .long   0
         .align 8
         .globl __sthread_lock
 __sthread_lock:
+
         # The first two instructions have to be atomic and are atomic 
         # because they use the movl instructions.
+
         movl    scheduler_lock, %eax    # Save old_value for scheduler_lock
         movl    $1, scheduler_lock      # scheduler_lock should be set to 1
+
         # Below, we simply make sure we return the inverse of old_value
         # by comparing the old_value against 0 and setting the return value
-        # to be 1 if the zero flag is set and 
+        # to be 1 if the zero flag is set and 0 otherwise
+
         cmp     $0, %eax                # Test if old_value is 0
+        movl    $0, %eax                # Move zero into eax 
         setz    %al                     # If it is zero, set the byte to be 1
                                         # else set to 0.
         ret
@@ -114,6 +119,10 @@ __sthread_restore:
         popq    %rbx
         popq    %rax
 
+        # When __sthread_switch is called, we are in a locked state. After
+        # calling __sthread_scheduler and __sthread_restore, which we 
+        # want to be done atomically, we can now unlock. 
+        call    __sthread_unlock
         ret
 
 

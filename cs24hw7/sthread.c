@@ -130,10 +130,15 @@ static void enqueue_thread(Thread *threadp) {
  */
 ThreadContext *__sthread_scheduler(ThreadContext *context) {
     /* 
-     * Upon entering the scheduler, lock system so that internal scheduler
-     * state does not get completely mangled.
+     * Upon entering the scheduler, we know that we are locked which is why
+     * we do not have to explictly lock here. In all scenarios where 
+     * we call __sthread_switch(), we lock beforehand and because 
+     * __sthread_switch() calls __sthread_scheduler, we are guaranteed that 
+     * upon entering this function, we are in a locked state. This is 
+     * important because we want to ensure that the internal scheduler
+     * state does not get completely mangled. In other words, all of the 
+     * below operations are guaranteed to be atomic. 
      */ 
-    __sthread_lock();
 
     if (context != NULL) {
         /* Add the current thread to the ready queue */
@@ -177,10 +182,10 @@ ThreadContext *__sthread_scheduler(ThreadContext *context) {
     current->state = ThreadRunning;
 
     /* 
-     * Upon exiting the scheduler, release the lock because now, we are 
-     * allowed to interrupt. 
+     * Upon exiting the scheduler, __sthread_restore is called which unlocks. 
+     * Thus, there is no need to explicityl release the lock because now.
      */ 
-    __sthread_unlock();
+
 
     /* Return the next thread to resume executing. */
     return current->context;
@@ -198,7 +203,18 @@ void sthread_start(int timer) {
     if (timer)
         start_timer();
 
+    /* We are about to call a non-reentrant function __sthread_start() so
+     * we must lock beforehand. This also ensures that upon entering 
+     * __sthread_scheduler and __sthread_restore that it is locked so that
+     * those atomic operations can be performed properly. 
+     */
+    __sthread_lock();
+
     __sthread_start();
+    /* 
+     * __sthread_start() ends up calling __sthread_restore which unlocks,
+     * so no need to explicitly unlock here. 
+     */
 }
 
 /*
@@ -208,6 +224,11 @@ void sthread_start(int timer) {
  * structure, and it adds the thread to the Ready queue.
  */
 Thread * sthread_create(void (*f)(void *arg), void *arg) {
+    /* 
+     * No need to lock/unlock here because all threads are created before
+     * sthread_start is called, so we do not have to worry about the timer 
+     * interrupts in this function.
+     */ 
     Thread *threadp;
     void *memory;
 
@@ -254,9 +275,19 @@ Thread * sthread_current(void) {
  * This function is global because it needs to be referenced from assembly.
  */
 void __sthread_finish(void) {
+    /*
+     * Lock the thread because we are making non-reentrant function calls to 
+     * printf and __sthread_switch() (__sthread_switch calls 
+     * __sthread_scheduler which is non-reentrant making __sthread_switch 
+     * non-reentrant). We are also changing global state of current here, 
+     * which we need to do atomically. 
+     */
+    __sthread_lock();
     printf("Thread %p has finished executing.\n", (void *) current);
     current->state = ThreadFinished;
+    /* __sthread_switch() ends up unlocking the thread, so no need to here. */
     __sthread_switch();
+
 }
 
 
@@ -267,7 +298,6 @@ void __sthread_finish(void) {
  */
 void __sthread_delete(Thread *threadp) {
     assert(threadp != NULL);
-
     free(threadp->memory);
     free(threadp);
 }
@@ -278,6 +308,12 @@ void __sthread_delete(Thread *threadp) {
  * call the scheduler, and it will pick a new thread to run.
  */
 void sthread_yield() {
+    /* We need to lock here because __sthread_switch() is non-reentrant 
+     * due to the fact that it calls __sthread_scheduler which is 
+     * non-reentrant. 
+     */
+    __sthread_lock();
+    /* sthread_switch() unlocks, so no need to do it here. */
     __sthread_switch();
 }
 
@@ -287,7 +323,15 @@ void sthread_yield() {
  * to Blocked, and call the scheduler.
  */
 void sthread_block() {
+    /* 
+     * We are changing global state of current here which we must do 
+     * atomically. We also call a non-reentrant function __sthread_switch()
+     * here because __sthread_switch() calls __sthread_scheduler which is
+     * non-reentrant. Thus, we must lock.
+     */ 
+    __sthread_lock();
     current->state = ThreadBlocked;
+    /* sthread_switch() unlocks, so no need to do it here. */
     __sthread_switch();
 }
 
@@ -297,6 +341,12 @@ void sthread_block() {
  * the ready queue.
  */
 void sthread_unblock(Thread *threadp) {
+    /* 
+     * Lock here because we are changing the state of the blocked_queue and 
+     * calling a non-renetrant function enqueue_thread. Thus, atomicity 
+     * is required.
+     */
+    __sthread_lock();
 
     /* Make sure the thread was blocked */
     assert(threadp->state == ThreadBlocked);
@@ -307,5 +357,12 @@ void sthread_unblock(Thread *threadp) {
     /* Re-queue it */
     threadp->state = ThreadReady;
     enqueue_thread(threadp);
+
+    /* 
+     * We are done with the atomic steps. Also, unlike the previous functions
+     * which end up calling __sthread_switch() which ends up unlocking, we
+     * do not have that call here, so we must remember to unlock ourselves.
+     */
+    __sthread_unlock();
 }
 

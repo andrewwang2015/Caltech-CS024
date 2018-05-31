@@ -13,6 +13,8 @@
 
 #include "sthread.h"
 #include "semaphore.h"
+#include "queue.h"
+#include "glue.h"
 
 /*
  * The semaphore data structure contains an integer i which represents
@@ -87,15 +89,21 @@ void semaphore_wait(Semaphore *semp) {
         /* Block the current thread and add to blocked queue of semaphore. */
         queue_append(semp->blocked, sthread_current());
         sthread_block();
+        /* 
+         * sthread_block calls scheduler which ends up unlocking the function
+         * (more specifically in __sthread_restore). Thus we must lock the 
+         * thread before subsequent appending of the queue and decrementing of
+         * the value of the semaphore once we exit this while loop.
+         */
+        __sthread_lock();
     }
+    semp->i--;
 
     /* 
-     * sthread_block calls scheduler which ends up unlocking the thread upon
-     * exiting the function. Thus we must lock the thread before changing 
-     * the value of the semaphore.  
+     * Unlock because we have finished waiting and all atomic operations 
+     * have been completed. 
      */
-    __sthread_lock();
-    semp->i--;
+    __sthread_unlock();
 
 }
 
@@ -117,7 +125,7 @@ void semaphore_signal(Semaphore *semp) {
     __sthread_lock();
     semp->i++;
 
-    /* If a thread is blocked on semaphore, unlock one at head of queue. */
+    /* If a thread is blocked on semaphore, unblock one at head of queue. */
     if (!queue_empty(semp->blocked)) {
         sthread_unblock(queue_take(semp->blocked));
     }
