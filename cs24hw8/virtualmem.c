@@ -477,6 +477,8 @@ void map_page(page_t page, unsigned initial_perm) {
         perror("lseek");
         abort();
     }
+    
+    /* Read from swapfile into virtual address space. */
     int rc = read(fd_swapfile, addr, PAGE_SIZE);
     if (rc == -1) {
         perror("read");

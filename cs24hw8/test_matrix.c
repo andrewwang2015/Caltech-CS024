@@ -175,6 +175,8 @@ int main(int argc, char **argv) {
     printf("\nDone!\n\n");
 
     printf("Total page loads:  %u\n", get_num_loads());
+
+    vmem_cleanup();
     return 0;
 }
 

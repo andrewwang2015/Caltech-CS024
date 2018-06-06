@@ -12,7 +12,7 @@
 /* When debugging virtual memory, setting this to 1 will result in a lot of
  * details being output to standard error.
  */
-#define VERBOSE 1
+#define VERBOSE 0
 
 
 /* Type for representing a page number.  Since we have a limit of 4K
@@ -91,5 +91,7 @@ page_t addr_to_page(void *addr);
 /* Return statistics about the virtual memory system. */
 unsigned int get_num_faults();
 unsigned int get_num_loads();
+
+void vmem_cleanup();
 
 #endif /* VIRTUALMEM_H */
