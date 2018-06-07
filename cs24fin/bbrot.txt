@@ -1,0 +1,123 @@
+Buddhabrot Renderer
+===================
+
+1.  Size of `points` array
+
+complex_t struct contains two floats. A single float is 4 bytes so each 
+complex_t is 8 bytes. In the compute_bbrot() function, you malloc 
+max_iters of these, so we have 2000 * 8 = 16000 bytes for the points array.
+This is 15.625 kb, so it will fit into all these caches. 
+
+2.  Memory reference pattern of `points` array
+
+compute_bbrot() initializes the points array, and then calls 
+compute_bbrot_point which modifies the points array. compute_bbrot_point
+adds to the points array consecutively (stride = 1, starting with the 
+index 0). This preserves good spatial locality because we are accessing and 
+modifying things in the points array close in time and close in space. The 
+write-back/write-allocate strategy allows us to benefit from such spatial 
+locality in modifiying the points array. Similarly, for reading from the 
+points array as is done in record_point_list(), we are taking elements of the
+points array consecutively with stride 1. Hence, for both reads and writes,
+we are showing good spatial locality.
+
+
+3.  Hardware caches and `points` array
+
+The points array will benefit greatly from the hardware caches. As stated in
+part a, the entire array can fit in L1 cache, so we will be operating at L1 
+speeds. This is because if the entire array fits, we will not have any write
+and cache misses and hence, no need to pull from slower caches. 
+
+
+4.  Size of `array` image-data
+
+It will be 2048 * 2048 * sizeof(uint32_t) = 2048 * 2048 * 4 = 16777216 bytes.
+This is equivalent to 16384 kb or 16 mb. This will not fit entirely in any
+of the processor caches.
+
+
+5.  Memory reference pattern of `array` image-data
+
+The corresponding pixel-data in the array image is incremented by 
+the following command:
+
+array[y_coord * bbrot_size + x_coord]++;
+
+Now this is not great for cache performance. For each point, we get the 
+corresponding y_coord and x_coord and do this updating of array, but we
+are not guaranteed that consecutive points are close to one another in 
+terms of their x_coord and y_coord, and so thus we may be accessing 
+vastly different memory regions when we hop from point to point when we
+try to update array. Thus, we have poor spatial locality in that consecutive
+updates to array may elicit cache and write misses. 
+
+6.  Hardware caches and `array` image-data
+
+It will probably operate at L3 speeds to between L3 and main memory speeds. 
+At any given time, about 1/3 of the array data will not be in any 
+of the caches (array is 16 mb, L1 + L2 + L3 = 10.25 mb), but rather be in 
+main memory. Due to the poor spatial locality, we will probably have to 
+pull from main memory about 1/3 of the time, and so we will mostly operate
+between L3 and main memory speeds. 
+
+
+7.  Multithreading and hardware caches
+
+The biggest thing when we introduce more cores and threads is the need to
+maintain cache coherence. We do so with cache coherence protocol and in 
+addition to cache lines having valid and dirty flags, we now need to keep
+track of cache line state (modified, shared, or invalid). This adds to the 
+complexity because now, we must make sure that blocks are synced up with
+one another even though they may appear in different L2 and L2 caches of 
+different cores.
+
+Furthermore, with more cores,we are at risk for false sharing where a single 
+cache line contains several independent values, updated by different 
+processors which forces caches to move the cache line back and forth to 
+compensate. For instance, let's just say N = 2 and thread 1 on CPU 1 writes 
+to all the odd indices of array and thread 2 on CPU 2 writes to all the evens.
+Even though these values are independent, these independent values being 
+updated are likely to reside in the same cache lines and to maintain 
+coherence, caches are doing tons of work. The caches must coordinate 
+operations on cache lines and we get this undesired behavior where cache
+line ping-pongs between CPU 1's cache and CPU 2's cache. 
+
+When N increase and we get more cores, more overhead is required to maintain
+cache coherence between all the caches of each core and the risk of false
+sharing becomes more present. 
+
+These issues would become better as the image size is increased and these 
+issues become worse as the image size is decreased. When the image size 
+is increased, the different processors can take on distinct regions of 
+array and so the individual caches of the different processors will contain
+distinct cache lines and because cache lines will not be shared as much,
+there is less overhead for cache coherence. Similarly, for false sharing, 
+if the image size is increased, by the same logic, cache lines will not be 
+shared so false sharing is not as big of an issue. The opposite is true when
+the image size is decreased; with a smaller image, threads will share 
+more cache lines meaning more required cache coherence and higher likelihood
+of false sharing.
+
+8.  Improvements to Buddhabrot Renderer
+
+For multithreaded usage, we can avoid false sharing by assigning to each 
+thread a contiguous group of array[i] values whose size is a multiple of 
+64 bytes (the cache-line size). This ensures that each cache line only 
+contains data updated by one thread. If our program can't predict which
+element threads will update, we can simply pad array-elements out to 
+cache-line size. Even though this may waste space, this will greatly improve 
+the runtime of the program.
+
+For single-threaded, we should improve the spatial locality of our program.
+As described in question 5, there is no guarantee that when we increment slots
+of array from point to point, that consecutive points will update locations
+close to one another in the array. To fix this, we have a couple of options.
+Instead of modifying/ incrementing array for each point, we could collect 
+the corresponding indices of array that have to be incremented first in a new
+array (we call arr2) and then sort them in ascending order. We then iterate 
+through arr2 to update the corresponding slots in array. However, because
+we know that elements of arr2 are sorted, we will have better spatial 
+locality when we update array and thus better utilization of our cache. The
+downside to this approach is the runtime and additional space we need to 
+sort.

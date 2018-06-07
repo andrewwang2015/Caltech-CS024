@@ -1,0 +1,31 @@
+Page Replacement Policies and Scan Resistance
+=============================================
+
+1a.  Characterization of FIFO policy
+
+
+
+1b.  Characterization of Second Chance / Clock policy
+
+
+
+1c.  Characterization of Aging policy
+
+
+
+2.  Susceptibility of Aging policy to scans
+
+
+
+3a.  Comparison of 2Q to LRU-2
+
+
+
+3b.  Design a version of 2Q that uses a timer interrupt and "accessed" bit
+
+
+
+3c.  Comparison of your policy to 2Q
+
+
+

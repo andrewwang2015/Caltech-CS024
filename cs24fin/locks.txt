@@ -1,0 +1,92 @@
+Locking Primitives
+==================
+
+1a.  Benefit of spinlocks over normal locks
+
+With a normal mutex lock, when the lock is not immediately available, the
+thread trying to attain the lock will typically allow for another thread to
+run in the meantime. However, trapping into the kernel so another process or
+thread can run can be quite expensive as we saw in sets 6 and 7 (we must
+save contexts and then switch). Hence, it is possible that the time it takes
+to context switch could exceed the time the original thread is passively 
+waiting in which case we are wasting clock cycles. It is also possible that
+the time it takes to context switch exceeds the time the thread would have
+wasted "spinning" on the lock had it been a spinlock as opposed to a mutex. 
+Hence, in the above case, we actually benefit from the spinlock because 
+context switching can be expensive and the time context switching back 
+and forth could exceed the time wasted from a thread waiting on the spinlock
+to become available. 
+
+1b.  Spinlocks on 1-processor systems
+
+No, spinlocks do not provide any benefit on a single-processor system. In a 
+single-processor system, with a spinlock, the thread is constantly "spinning"
+on the lock which blocks other threads from running and hence unlocking the
+lock. However, in the case of a normal mutex, when we passively wait, we allow
+other threads to run, of which one may unlock the lock for the waiting thread
+to use. 
+
+
+2a.  Read/write lock fairness issues
+
+Using the policy described in the writeup, we could certainly have the 
+case where writers are starved by the consistent addition of readers. The 
+current policy has it otohat a writer W1 can only acquire the read-write
+lock if no one holds the lock and remains blocked until no more readers
+hold the lock. Hence, we can have the following case:
+
+Series of requesters: W1, R1, W2, R2, R3, R4, R5, R6, ... R_n
+
+We know that W1 will first recieve the lock but once it is unlocked, R1 
+will receive the lock. Now, even though W2 is next in line, it will remain
+blocked and even though R3, R4, R5, R6 and all future readers come after 
+W2 in the series, they will be granted read access to the lock because 
+R1, another reader, has the lock. Thus, W2 will have to wait, potentially
+a very long time, until readers after him are done with the lock, so he can
+get the lock even though technically, he requested before the readers after
+him. This is unfair to the writer thread W2 because it gets starved in this
+process. 
+
+
+2b.  Fair read/write lock design
+
+The fair version would be to maintain the order of which requesters are added.
+The notion of "ahead of" below is relating to the order of which requestors
+are added where if A is "ahead of" B, then A requested the lock before B. 
+
+The rules are as follows for a fair read-write lock:
+
+If a reader R1 attempts to acquire the read-write lock:
+    - If no one holds the lock, grant read access to R1 immediately
+    - If a writer W' is holding the lock and no writers ahead of R1 are 
+      waiting for the lock, then grant access to R1 once W` is released.
+    - If a reader R' is holding the lock and no writers ahead of R1 are 
+      waiting for the lock, then grant access to R1.
+    - If another writer W' is waiting for the lock, block.
+
+If a writer W1 attempts to acquire the read-write lock:
+    - If no one holds the lock, grant read access to W1 immediately
+    - If another writer W' currently holds the lock, W1 is blocked until W' 
+      has released the lock and there are no writers ahead of W1 waiting for
+      the lock.
+    - If another reader R' currently holds the lock, W1 is blocked until R' 
+      has released the lock and there are no writers ahead of W1 waiting for
+      the lock.
+
+If multiple threads are blocked on the read-write lock when it becomes 
+available, they are ALWAYS granted access in the order that they initially
+attempted to acquire the lock. 
+
+Now, if we take our unfair example from above, we see that all threads 
+are attended to in the order that they request. 
+
+Recall that we had:
+
+Series of requesters: W1, R1, W2, R2, R3, R4, R5, R6, ... R_n
+
+W1 will first get access, then R1 will. Unlike the previous case where
+R2, R3, R4, ..., would get access while R1 holds the lock, 
+with this fair read-write lock because W2 is "ahead of" R2, R3, R4, R5, ... 
+in terms of order of request, the readers after W2 have to wait until W2 
+gets the lock and releases before they get to access. Hence, we do not have 
+the starvation problem of W2 we had before. 
