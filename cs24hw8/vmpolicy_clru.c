@@ -30,22 +30,57 @@ typedef struct node_t {
 } node_t;
 
 
+
+/*============================================================================
+ * "Loaded Pages" Data Structure
+ *
+ * This data structure records all pages that are currently loaded in the
+ * virtual memory, so that we can use our CLOCK/LRU policy.
+ */
+
+typedef struct loaded_pages_t {
+    /* The maximum number of pages that can be resident in memory at once. */
+    int max_resident;
+    
+    /* The number of pages that are currently loaded.  This can initially be
+     * less than max_resident.
+     */
+    int num_loaded;
+
+    /* 
+     * Our queue will take from the head and add recently accessed pages to 
+     * tail.
+     */
+    node_t *head;
+    node_t *tail;
+
+} loaded_pages_t;
+
+
 /*============================================================================
  * Policy Implementation
  */
 
-/* Our queue will take from the head and add to the tail. */
-node_t *head;
-node_t *tail;
+/* The queue of pages that are currently resident. */
+static loaded_pages_t *loaded;
+
 
 /* Initialize the policy.  Return nonzero for success, 0 for failure. */
 int policy_init(int max_resident) {
-    (void)(max_resident);
     fprintf(stderr, "Using CLOCK/LRU eviction policy.\n\n");
 
-    /* Initialize head and tail of our queue used for LRU policy. */
-    head = NULL;
-    tail = NULL;
+    loaded = malloc(sizeof(loaded_pages_t));
+    if (loaded == NULL) {
+        fprintf(stderr, "Fail to allocate loaded_pages_t \n");
+        return 0;
+    }
+    /* Initialize head and tail of our FIFO queue. */
+    loaded->head = NULL;
+    loaded->tail = NULL;
+
+    /* Initialize pages counts (max and current). */
+    loaded->num_loaded = 0;
+    loaded->max_resident = max_resident;
 
     /* Return nonzero if initialization succeeded. */
     return 1;
@@ -55,15 +90,17 @@ int policy_init(int max_resident) {
 /* Clean up the data used by the page replacement policy. */
 void policy_cleanup(void) {
     /* Iterate through our queue and free each node. */
-    node_t *temp = head;
+    node_t *temp = loaded->head;
     node_t *next;
     while (temp != NULL) {
         next = temp->next;
         free(temp);
         temp = next;
     }
-    head = NULL;
-    tail = NULL;
+    loaded->head = NULL;
+    loaded->tail = NULL;
+    free(loaded);
+    loaded = NULL;
 }
 
 
@@ -71,23 +108,31 @@ void policy_cleanup(void) {
  * virtual address space.  Record that the page is now resident.
  */
 void policy_page_mapped(page_t page) {
+    assert(loaded->num_loaded < loaded->max_resident);
     /* Initialize a new node for new page. */
     node_t *new_node = malloc(sizeof(new_node));
+    if (new_node == NULL) {
+        fprintf(stderr, "Fail to allocate new node for new page \n");
+        exit(1);
+    }
     new_node->page = page; 
     new_node->next = NULL;
 
     /* Handle the case when the queue is empty. */
-    if (head == NULL && tail == NULL) {
-        head = new_node;
-        head->prev = NULL;
+    if (loaded->head == NULL && loaded->tail == NULL) {
+        loaded->head = new_node;
+        loaded->head->prev = NULL;
     } else {
-        tail->next = new_node;
-        new_node->prev = tail;
+        loaded->tail->next = new_node;
+        new_node->prev = loaded->tail;
     }
 
     /* Set the tail to now be the new node. */
-    tail = new_node;
-    tail->next = NULL;
+    loaded->tail = new_node;
+    loaded->tail->next = NULL;    
+
+    /* Increase the number of pages mapped. */
+    loaded->num_loaded++;
     return; 
 }
 
@@ -100,12 +145,36 @@ void policy_page_mapped(page_t page) {
  * is done if the page has not been accessed. 
  */
 void policy_timer_tick(void) {
+
+    node_t *it = loaded->head;
+
+    /* 
+     * Keep track of the tail node before adjusting of our queue, so we
+     * only loop through each node once. 
+     */
+    node_t *last = loaded->tail;
+
+    /* 
+     * Boolean flag that serves as the condition for our while loop. This is
+     * to ensure that we only iterate through each page once. This flag
+     * becomes false when our iterator reaches the original tail node. 
+     * Without this and using our old approach of iteration until our 
+     * iterator reaches NULL, we are at risk of scanning over pages more than
+     * once because accessed pages are being added to the tail. 
+     */
+    int to_continue = 1;
     /* Traverse all pages in our queue. */
-    node_t *it = head;
-    while (it != NULL) {
+    while (to_continue) {
+        /* 
+         * Once we reach the original tail node, we will have iterated 
+         * through all pages and so we want to make this iteration the last.
+         */
+        if (it == last) {
+            to_continue = 0;
+        }
         /* Check to see if it has been accessed since last interrupt. */
         if (is_page_accessed(it->page)) {
-            /* Clear its accessed bit and move to back of queue. */
+            /* Clear its accessed bit. */
             clear_page_accessed(it->page);
 
             /* 
@@ -114,6 +183,7 @@ void policy_timer_tick(void) {
              */
             set_page_permission(it->page, PAGEPERM_NONE);
 
+            /* Move accessed page to end of queue. */
             node_t *after = it->next;
             node_t *prev = it->prev;
             if (prev != NULL && after != NULL) {
@@ -127,10 +197,10 @@ void policy_timer_tick(void) {
                  */
                 prev->next = after;
                 after->prev = prev;
-                tail->next = it;
-                it->prev = tail;
+                loaded->tail->next = it;
+                it->prev = loaded->tail;
                 it->next = NULL;
-                tail = it;
+                loaded->tail = it;
                 it = after;
             } else if (prev != NULL) {
 
@@ -150,11 +220,11 @@ void policy_timer_tick(void) {
                  * back of the queue (onto the tail).
                  */
                 after->prev = NULL;
-                head = after;
-                tail->next = it;
-                it->prev = tail;
+                loaded->head = after;
+                loaded->tail->next = it;
+                it->prev = loaded->tail;
                 it->next = NULL;
-                tail = it;
+                loaded->tail = it;
                 it = after;
             }
 
@@ -178,13 +248,18 @@ void policy_timer_tick(void) {
  */
 page_t choose_and_evict_victim_page(void) {
     /* Victim is the page at front of queue. */
-    page_t victim = head->page;
-
-    /* Free the previous head node. Set the new head node. */
-    node_t *temp = head; 
-    head = head->next;
-    head->prev = NULL;
+    page_t victim = loaded->head->page;
+    /* 
+     * Shrink the collection of loaded pages now, by evicting the head 
+     * page which is supposed to be the page that is [probably] a page
+     * that has not been accessed recently. We do so by freeing the previous
+     * head node and setting the new head node. 
+     */
+    node_t *temp = loaded->head; 
+    loaded->head = loaded->head->next;
+    loaded->head->prev = NULL;
     free(temp);
+    loaded->num_loaded--;
 
 #if VERBOSE
     fprintf(stderr, "Choosing victim page %u to evict.\n", victim);

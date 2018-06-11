@@ -54,7 +54,7 @@ steps are required, list them all here.)
 
 Give the resulting page-load rate of the above command:  
 
-Total page loads:  6834
+Total page loads:  6833
 
 If you have any additional information to share about your policy, please
 share it here.  Please keep your comments brief; you don't need to repeat

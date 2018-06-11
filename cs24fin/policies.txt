@@ -3,29 +3,101 @@ Page Replacement Policies and Scan Resistance
 
 1a.  Characterization of FIFO policy
 
-
+FIFO suits the combination of both in that it is rather indifferent. Pages
+are always loaded onto the back of the queue and evicted from the front of
+the queue (we don't care at all whether the page has been accessed). 
 
 1b.  Characterization of Second Chance / Clock policy
 
+Second chance/clock considers frequency of access over recency of access. 
+We see that if a page has been accessed frequently, it will consistently
+be pushed to the back of the FIFO and thereby far from eviction. However, if
+we have a page that is recently accessed, it will still be pushed to 
+the back of the queue on access, but if it is not accessed frequently, it 
+will slowly move towards the front of the FIFO as other pages are pushed
+back until it finally gets evicted.
 
 
 1c.  Characterization of Aging policy
 
+As mentioned in assignment 8, the aging policy "cleverly balances both
+frequency of access and recency of access." To see why, recall that on a 
+periodic time interval, each page's "age value" is decreased by shifting 
+right by 1 bit, and then the topmost bit is set to the page's current 
+"accessed" value. Hence, if a page is frequently accessed, its topmost bit
+will keep getting set by 1 and hence its age will increase and thus stay 
+longer. However, recency of access must also be considered because even if a 
+page is accessed frequently, but not recently, the age decay of shifting right
+by 1 bit will keep bringing down the age of a page not accessed recently. 
 
 
 2.  Susceptibility of Aging policy to scans
 
+Yes, the aging policy is susceptible to scans, but it is less susceptible
+than both FIFO and second chance/clock. In the FIFO, access time is not
+considered at all, so it has pretty poor performance. In second chance, once
+a page is accessed once, it will be pushed to the back of the FIFO queue,
+but in a scan, it will soon get evicted by the scanning pages. Aging is a bit 
+more robust than both of these in that all pages decay. However, because the
+scanning pages are only accessed during the scan, they will not have a way
+to boost their age unlike the pages that are consistently being accessed 
+which will decay, but will have their topmost bits set by these accesses. 
+It is important to keep in mind that with tons of pages being scanned, the 
+effect of the setting of these topmost bits by these pages being accessed
+will wear off as more time intervals pass so there is still the possibility
+that such pages will get evicted by scanning pages. 
 
 
 3a.  Comparison of 2Q to LRU-2
 
+This 2Q policy does a good job of approximating LRU-2 behavior, but does
+not exactly mimic it. 2Q policy mimics the behavior of LRU-2 with regards
+to pages that have only been accessed once. In LRU-2 policy, pages that have
+only been accessed once have a "second most recent access time" of 
+negative infinity meaning that these pages should be the one evicted. 2Q 
+mimics this by maintaining the A1 queue that stores pages that have only
+been accessed once and evicting from the back of A1 first. 
+
+The difference arises in treatment of pages that have been accessed more than
+once. For these pages, LRU-2 places emphasis on the second most recent access
+time. However, the 2Q policy emphasizes repeated accesses in that each
+additional access pushes the page the front of the Am queue and pages
+are evicted from the back of the Am queue when A1 is empty. Although these 
+are similar, they do not exactly align. 
+
+A simple example illustrates this:
+
+Consider we have two pages p1 and p2. Let's say that p1 gets accessed 
+way before p2. Thus, our A1 will be: p2, p1 (p2 at the front). Now, let's say 
+p2 gets accessed again before p1 gets acccessed again and so now A1 is empty
+and Am is: p1, p2 (p1 at the front). Hence, when a page has to be evicted,
+using the 2Q policy, p2 would be evicted even though based on the 
+LRU-2 policy, p1 has an older "second most recent access time" and would be 
+evicted. This small example shows a descrepancy between 2Q and LRU-2. 
 
 
 3b.  Design a version of 2Q that uses a timer interrupt and "accessed" bit
 
+Every time the timer interrupts, we will scan through our pages in A1. If
+these pages have their accessed bits set, then move these pages to the front
+of Am. We then clear the accessed bits for all these pages. We also scan
+through our pages in Am. If any of these pages have their accessed bits set,
+then we move these pages to the front of Am and then clear their accessed 
+bits. If we get a page fault resulting in a new page being mapped, we first
+check to see the sizes of our queues. If we have the max. number of resident
+pages, we must first evict from the back of A1 if A1 is nonempty or else 
+evict from the back of Am. We then add the new page to the front of A1 with
+a cleared accessed bit. 
 
 
 3c.  Comparison of your policy to 2Q
+
+My modified policy approximates the 2Q algorithm pretty well. It can
+effectively identify page accesses that are part of a scan because such
+pages would be initialized to be in A1 and then pushed back for eviction as
+more pages are mapped. Likewise, through Am, it will be able to identify page
+accesses that are not part of a scan (these pages not part of a scan will
+be pushed to Am).
 
 
 

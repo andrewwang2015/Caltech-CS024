@@ -19,7 +19,12 @@ write-back/write-allocate strategy allows us to benefit from such spatial
 locality in modifiying the points array. Similarly, for reading from the 
 points array as is done in record_point_list(), we are taking elements of the
 points array consecutively with stride 1. Hence, for both reads and writes,
-we are showing good spatial locality.
+we are showing good spatial locality. With regards to temporal locality, we 
+see that for each new point, we write to the start of the points array again.
+Hence, it is possible that there is significant time between successive 
+writes to the same index in the points array (i.e. if a point generates a 
+lot of iterations), in which case, we would have not so good temporal
+locality. 
 
 
 3.  Hardware caches and `points` array
@@ -50,7 +55,10 @@ are not guaranteed that consecutive points are close to one another in
 terms of their x_coord and y_coord, and so thus we may be accessing 
 vastly different memory regions when we hop from point to point when we
 try to update array. Thus, we have poor spatial locality in that consecutive
-updates to array may elicit cache and write misses. 
+updates to array may elicit cache and write misses. With regards to temporal
+locality, we have little guarantee that a particular set of indices in array
+will be repeatedly incremented so we have no guarantees of decent temporal
+locality.
 
 6.  Hardware caches and `array` image-data
 
